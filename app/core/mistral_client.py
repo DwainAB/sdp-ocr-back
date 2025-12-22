@@ -5,6 +5,8 @@ from app.core.config import settings
 class MistralOCRClient:
     def __init__(self):
         self.api_key = settings.MISTRAL_API_KEY
+        if not self.api_key:
+            raise ValueError("MISTRAL_API_KEY environment variable is required")
         self.endpoint = "https://api.mistral.ai/v1/ocr"
 
     def _encode_to_base64(self, data: bytes) -> str:
