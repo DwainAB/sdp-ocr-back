@@ -6,7 +6,6 @@ import uuid
 from datetime import datetime
 
 from app.core.mistral_client import mistral_ocr_client
-from app.utils.pdf_processor import pdf_processor
 from app.utils.document_classifier import document_classifier
 from app.utils.data_extractor import data_extractor
 from app.utils.csv_generator import csv_generator
@@ -31,64 +30,57 @@ async def upload_pdf_for_ocr(file: UploadFile = File(...)):
         if not pdf_content or len(pdf_content) < 100:
             raise HTTPException(status_code=400, detail="Invalid or empty PDF")
 
-        processed_pages: List[ProcessedPage] = []
-        total_blank_sheets = 0
-        total_studio_parfums = 0
+        try:
+            # Traiter le PDF complet avec Mistral OCR
+            raw_text = await mistral_ocr_client.process_pdf_ocr(pdf_content)
+            doc_type, confidence = document_classifier.classify_document(raw_text)
+            extracted_data = data_extractor.extract_data(raw_text, doc_type)
 
-        page_pdfs = pdf_processor.split_pdf_to_pages(pdf_content, max_pages=None)
-        if not page_pdfs:
-            raise HTTPException(status_code=400, detail="No pages found in PDF")
+            # Créer une seule "page" représentant tout le PDF
+            processed_page = ProcessedPage(
+                page_number=1,
+                document_type=doc_type,
+                confidence=confidence,
+                raw_text=raw_text,
+                extracted_data=extracted_data,
+            )
 
-        for i, page_pdf_bytes in enumerate(page_pdfs):
-            try:
-                raw_text = await mistral_ocr_client.process_pdf_ocr(page_pdf_bytes)
-                doc_type, confidence = document_classifier.classify_document(raw_text)
+            total_blank_sheets = 1 if doc_type == DocumentType.BLANK_SHEET else 0
+            total_studio_parfums = 1 if doc_type == DocumentType.STUDIO_PARFUMS else 0
 
-                if doc_type == DocumentType.BLANK_SHEET:
-                    total_blank_sheets += 1
-                elif doc_type == DocumentType.STUDIO_PARFUMS:
-                    total_studio_parfums += 1
+            summary = {
+                "total_pages": 1,
+                "blank_sheets": total_blank_sheets,
+                "studio_parfums_sheets": total_studio_parfums,
+                "unknown_sheets": 1 if doc_type == DocumentType.UNKNOWN else 0,
+                "processing_errors": 1 if doc_type == DocumentType.UNKNOWN else 0,
+            }
 
-                extracted_data = data_extractor.extract_data(raw_text, doc_type)
+            response = OCRResponse(
+                success=True,
+                filename=file.filename,
+                total_pages=1,
+                processed_pages=[processed_page],
+                summary=summary,
+            )
 
-                processed_pages.append(
-                    ProcessedPage(
-                        page_number=i + 1,
-                        document_type=doc_type,
-                        confidence=confidence,
-                        raw_text=raw_text,
-                        extracted_data=extracted_data,
-                    )
-                )
+        except Exception as e:
+            # En cas d'erreur OCR
+            processed_page = ProcessedPage(
+                page_number=1,
+                document_type=DocumentType.UNKNOWN,
+                confidence=0.0,
+                raw_text=f"Error: {str(e)}",
+                extracted_data={},
+            )
 
-            except Exception as e:
-                processed_pages.append(
-                    ProcessedPage(
-                        page_number=i + 1,
-                        document_type=DocumentType.UNKNOWN,
-                        confidence=0.0,
-                        raw_text=f"Error: {str(e)}",
-                        extracted_data={},
-                    )
-                )
-
-        summary = {
-            "total_pages": len(page_pdfs),
-            "blank_sheets": total_blank_sheets,
-            "studio_parfums_sheets": total_studio_parfums,
-            "unknown_sheets": len(page_pdfs) - total_blank_sheets - total_studio_parfums,
-            "processing_errors": sum(
-                1 for p in processed_pages if p.document_type == DocumentType.UNKNOWN
-            ),
-        }
-
-        response = OCRResponse(
-            success=True,
-            filename=file.filename,
-            total_pages=len(page_pdfs),
-            processed_pages=processed_pages,
-            summary=summary,
-        )
+            response = OCRResponse(
+                success=True,
+                filename=file.filename,
+                total_pages=1,
+                processed_pages=[processed_page],
+                summary={"total_pages": 1, "processing_errors": 1},
+            )
 
         return response.dict()
 
@@ -113,28 +105,19 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
         # ✅ s'assurer que le dossier existe
         os.makedirs(GENERATED_DIR, exist_ok=True)
 
-        page_pdfs = pdf_processor.split_pdf_to_pages(pdf_content, max_pages=10)  # Limit to 10 for testing
-        if not page_pdfs:
-            raise HTTPException(status_code=400, detail="No pages found in PDF")
+        # Traiter le PDF complet avec Mistral OCR
+        raw_text = await mistral_ocr_client.process_pdf_ocr(pdf_content)
+        doc_type, confidence = document_classifier.classify_document(raw_text)
+        extracted_data = data_extractor.extract_data(raw_text, doc_type)
 
-        processed_pages = []
-
-        for i, page_pdf_bytes in enumerate(page_pdfs):
-            try:
-                raw_text = await mistral_ocr_client.process_pdf_ocr(page_pdf_bytes)
-                doc_type, confidence = document_classifier.classify_document(raw_text)
-                extracted_data = data_extractor.extract_data(raw_text, doc_type)
-
-                processed_pages.append({
-                    "page_number": i + 1,
-                    "document_type": doc_type.value,
-                    "confidence": confidence,
-                    "raw_text": raw_text,
-                    "extracted_data": extracted_data,
-                })
-
-            except Exception:
-                continue  # on ignore la page mais on continue
+        # Créer une seule "page" représentant tout le PDF
+        processed_pages = [{
+            "page_number": 1,
+            "document_type": doc_type.value,
+            "confidence": confidence,
+            "raw_text": raw_text,
+            "extracted_data": extracted_data,
+        }]
 
         csv_content = csv_generator.generate_studio_parfums_csv(processed_pages)
 
@@ -157,10 +140,7 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
             "success": True,
             "filename": csv_filename,
             "download_url": f"/api/v1/ocr/download/{csv_filename}",
-            "total_studio_parfums_found": sum(
-                1 for p in processed_pages
-                if p.get("document_type") == DocumentType.STUDIO_PARFUMS.value
-            ),
+            "total_studio_parfums_found": 1 if doc_type == DocumentType.STUDIO_PARFUMS else 0,
         }
 
     except Exception as e:
