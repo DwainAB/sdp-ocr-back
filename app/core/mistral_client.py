@@ -45,9 +45,9 @@ class MistralOCRClient:
         data = response.json()
         return data.get("text", "")
 
-    async def process_pdf_ocr(self, pdf_bytes: bytes) -> str:
+    async def process_pdf_ocr(self, pdf_bytes: bytes) -> dict:
         """
-        OCR PDF using direct API call
+        OCR PDF using direct API call - returns full response with pages
         """
         pdf_base64 = self._encode_to_base64(pdf_bytes)
         print(f"PDF size: {len(pdf_bytes)} bytes, base64 size: {len(pdf_base64)}")
@@ -82,18 +82,6 @@ class MistralOCRClient:
         data = response.json()
         print(f"OCR response data: {data}")
 
-        # Extraire le texte des pages
-        text_result = ""
-        if "pages" in data:
-            # Le texte est dans la clé 'markdown' de chaque page
-            text_parts = []
-            for page in data["pages"]:
-                markdown_text = page.get("markdown", "")
-                if markdown_text:
-                    text_parts.append(markdown_text)
-            text_result = "\n".join(text_parts)
-
-        print(f"Final extracted text: '{text_result}'")
-        return text_result
+        return data
 
 mistral_ocr_client = MistralOCRClient()

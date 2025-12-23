@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 
 from app.core.mistral_client import mistral_ocr_client
-from app.utils.pdf_processor import pdf_processor
+from app.utils.pdf_splitter import pdf_splitter
 from app.utils.document_classifier import document_classifier
 from app.utils.data_extractor import data_extractor
 from app.utils.csv_generator import csv_generator
@@ -31,17 +31,36 @@ async def upload_pdf_for_ocr(file: UploadFile = File(...)):
         if not pdf_content or len(pdf_content) < 100:
             raise HTTPException(status_code=400, detail="Invalid or empty PDF")
 
+        # Split PDF into pages using pikepdf (évite limite 32MB)
+        print(f"Starting PDF splitting for file: {file.filename}")
+        try:
+            page_pdfs = pdf_splitter.split_pdf_to_pages(pdf_content, max_pages=None)
+            if not page_pdfs:
+                raise HTTPException(status_code=400, detail="No pages found in PDF")
+        except Exception as e:
+            print(f"Error during PDF splitting: {e}")
+            raise HTTPException(status_code=500, detail=f"Error splitting PDF: {e}")
+
         processed_pages: List[ProcessedPage] = []
         total_blank_sheets = 0
         total_studio_parfums = 0
 
-        page_pdfs = pdf_processor.split_pdf_to_pages(pdf_content, max_pages=None)
-        if not page_pdfs:
-            raise HTTPException(status_code=400, detail="No pages found in PDF")
-
+        print(f"Processing {len(page_pdfs)} pages with Mistral OCR")
         for i, page_pdf_bytes in enumerate(page_pdfs):
+            page_number = i + 1
             try:
-                raw_text = await mistral_ocr_client.process_pdf_ocr(page_pdf_bytes)
+                print(f"OCR processing page {page_number} ({len(page_pdf_bytes)} bytes)")
+
+                # OCR de la page individuelle avec Mistral
+                ocr_response = await mistral_ocr_client.process_pdf_ocr(page_pdf_bytes)
+
+                # Extraire le texte de la première page de la réponse
+                raw_text = ""
+                if "pages" in ocr_response and len(ocr_response["pages"]) > 0:
+                    raw_text = ocr_response["pages"][0].get("markdown", "")
+
+                print(f"Page {page_number}: extracted {len(raw_text)} characters")
+
                 doc_type, confidence = document_classifier.classify_document(raw_text)
 
                 if doc_type == DocumentType.BLANK_SHEET:
@@ -53,7 +72,7 @@ async def upload_pdf_for_ocr(file: UploadFile = File(...)):
 
                 processed_pages.append(
                     ProcessedPage(
-                        page_number=i + 1,
+                        page_number=page_number,
                         document_type=doc_type,
                         confidence=confidence,
                         raw_text=raw_text,
@@ -62,9 +81,11 @@ async def upload_pdf_for_ocr(file: UploadFile = File(...)):
                 )
 
             except Exception as e:
+                print(f"Error processing page {page_number}: {e}")
+                print(f"Error type: {type(e)}")
                 processed_pages.append(
                     ProcessedPage(
-                        page_number=i + 1,
+                        page_number=page_number,
                         document_type=DocumentType.UNKNOWN,
                         confidence=0.0,
                         raw_text=f"Error: {str(e)}",
@@ -72,11 +93,12 @@ async def upload_pdf_for_ocr(file: UploadFile = File(...)):
                     )
                 )
 
+        total_pages = len(processed_pages)
         summary = {
-            "total_pages": len(page_pdfs),
+            "total_pages": total_pages,
             "blank_sheets": total_blank_sheets,
             "studio_parfums_sheets": total_studio_parfums,
-            "unknown_sheets": len(page_pdfs) - total_blank_sheets - total_studio_parfums,
+            "unknown_sheets": total_pages - total_blank_sheets - total_studio_parfums,
             "processing_errors": sum(
                 1 for p in processed_pages if p.document_type == DocumentType.UNKNOWN
             ),
@@ -85,7 +107,7 @@ async def upload_pdf_for_ocr(file: UploadFile = File(...)):
         response = OCRResponse(
             success=True,
             filename=file.filename,
-            total_pages=len(page_pdfs),
+            total_pages=total_pages,
             processed_pages=processed_pages,
             summary=summary,
         )
@@ -93,7 +115,11 @@ async def upload_pdf_for_ocr(file: UploadFile = File(...)):
         return response.dict()
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
+        print(f"Global error in endpoint: {e}")
+        print(f"Global error type: {type(e)}")
+        print(f"Global error str: '{str(e)}'")
+        print(f"Global error repr: {repr(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e) or repr(e)}")
 
 
 # ======================================================================
@@ -113,27 +139,45 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
         # ✅ s'assurer que le dossier existe
         os.makedirs(GENERATED_DIR, exist_ok=True)
 
-        page_pdfs = pdf_processor.split_pdf_to_pages(pdf_content, max_pages=10)  # Limit to 10 for testing
-        if not page_pdfs:
-            raise HTTPException(status_code=400, detail="No pages found in PDF")
+        # Split PDF into pages using pikepdf (évite limite 32MB)
+        print(f"Starting PDF splitting for CSV generation: {file.filename}")
+        try:
+            page_pdfs = pdf_splitter.split_pdf_to_pages(pdf_content, max_pages=10)  # Limit to 10 for testing
+            if not page_pdfs:
+                raise HTTPException(status_code=400, detail="No pages found in PDF")
+        except Exception as e:
+            print(f"Error during PDF splitting: {e}")
+            raise HTTPException(status_code=500, detail=f"Error splitting PDF: {e}")
 
         processed_pages = []
 
+        print(f"Processing {len(page_pdfs)} pages for CSV generation")
         for i, page_pdf_bytes in enumerate(page_pdfs):
+            page_number = i + 1
             try:
-                raw_text = await mistral_ocr_client.process_pdf_ocr(page_pdf_bytes)
+                print(f"OCR processing page {page_number} for CSV ({len(page_pdf_bytes)} bytes)")
+
+                # OCR de la page individuelle avec Mistral
+                ocr_response = await mistral_ocr_client.process_pdf_ocr(page_pdf_bytes)
+
+                # Extraire le texte de la première page de la réponse
+                raw_text = ""
+                if "pages" in ocr_response and len(ocr_response["pages"]) > 0:
+                    raw_text = ocr_response["pages"][0].get("markdown", "")
+
                 doc_type, confidence = document_classifier.classify_document(raw_text)
                 extracted_data = data_extractor.extract_data(raw_text, doc_type)
 
                 processed_pages.append({
-                    "page_number": i + 1,
+                    "page_number": page_number,
                     "document_type": doc_type.value,
                     "confidence": confidence,
                     "raw_text": raw_text,
                     "extracted_data": extracted_data,
                 })
 
-            except Exception:
+            except Exception as e:
+                print(f"Error processing page {page_number} for CSV: {e}")
                 continue  # on ignore la page mais on continue
 
         csv_content = csv_generator.generate_studio_parfums_csv(processed_pages)
@@ -164,7 +208,11 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
+        print(f"Global error in endpoint: {e}")
+        print(f"Global error type: {type(e)}")
+        print(f"Global error str: '{str(e)}'")
+        print(f"Global error repr: {repr(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e) or repr(e)}")
 
 
 # ======================================================================
