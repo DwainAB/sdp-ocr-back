@@ -10,6 +10,7 @@ from app.utils.pdf_splitter import pdf_splitter
 from app.utils.document_classifier import document_classifier
 from app.utils.data_extractor import data_extractor
 from app.utils.csv_generator import csv_generator
+from app.db.customer_service import customer_service
 from app.schemas.ocr_schemas import OCRResponse, ProcessedPage, DocumentType
 
 router = APIRouter()
@@ -168,12 +169,25 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
                 doc_type, confidence = document_classifier.classify_document(raw_text)
                 extracted_data = data_extractor.extract_data(raw_text, doc_type)
 
+                # Si c'est un formulaire Studio des Parfums, insérer en base de données
+                customer_id = None
+                if doc_type == DocumentType.STUDIO_PARFUMS and extracted_data:
+                    try:
+                        customer_id = customer_service.insert_customer_if_not_exists(extracted_data)
+                        if customer_id:
+                            print(f"Customer créé avec ID: {customer_id} pour page {page_number}")
+                        else:
+                            print(f"Customer non créé pour page {page_number} (existe déjà ou données insuffisantes)")
+                    except Exception as e:
+                        print(f"Erreur insertion customer page {page_number}: {e}")
+
                 processed_pages.append({
                     "page_number": page_number,
                     "document_type": doc_type.value,
                     "confidence": confidence,
                     "raw_text": raw_text,
                     "extracted_data": extracted_data,
+                    "customer_id": customer_id  # Ajouter l'ID customer pour référence
                 })
 
             except Exception as e:
@@ -197,6 +211,12 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(csv_content)
 
+        # Compter les customers créés
+        customers_created = sum(
+            1 for p in processed_pages
+            if p.get("customer_id") is not None
+        )
+
         return {
             "success": True,
             "filename": csv_filename,
@@ -205,6 +225,12 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
                 1 for p in processed_pages
                 if p.get("document_type") == DocumentType.STUDIO_PARFUMS.value
             ),
+            "customers_created": customers_created,
+            "customers_skipped": sum(
+                1 for p in processed_pages
+                if p.get("document_type") == DocumentType.STUDIO_PARFUMS.value
+                and p.get("customer_id") is None
+            )
         }
 
     except Exception as e:
