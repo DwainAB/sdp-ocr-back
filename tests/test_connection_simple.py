@@ -1,8 +1,8 @@
 """
 Test simple de connexion à la base de données
 """
-import mysql.connector
-from mysql.connector import Error
+import pymysql
+from pymysql import MySQLError
 
 def test_connection():
     print("=" * 80)
@@ -17,7 +17,8 @@ def test_connection():
         'user': 'u440859155_dwain_sdp',
         'password': 'Daventys93110@',
         'database': 'u440859155_sdp_test',
-        'connection_timeout': 5
+        'cursorclass': pymysql.cursors.DictCursor,
+        'connect_timeout': 5
     }
 
     print(f"Host: {config['host']}:{config['port']}")
@@ -27,26 +28,28 @@ def test_connection():
     print("Tentative de connexion...")
 
     try:
-        connection = mysql.connector.connect(**config)
+        connection = pymysql.connect(**config)
 
-        if connection.is_connected():
+        if connection.open:
             print("✅ Connexion réussie !")
 
             # Tester une requête simple
             cursor = connection.cursor()
             cursor.execute("SELECT DATABASE()")
             db_name = cursor.fetchone()
-            print(f"   Base de données connectée : {db_name[0]}")
+            print(f"   Base de données connectée : {db_name['DATABASE()']}")
 
             cursor.execute("SELECT VERSION()")
             version = cursor.fetchone()
-            print(f"   Version MySQL : {version[0]}")
+            print(f"   Version MySQL : {version['VERSION()']}")
 
             cursor.execute("SHOW TABLES")
             tables = cursor.fetchall()
             print(f"   Nombre de tables : {len(tables)}")
             if tables:
-                print(f"   Tables : {[table[0] for table in tables[:5]]}")
+                # Récupérer le nom de la table depuis le dictionnaire
+                table_key = list(tables[0].keys())[0] if tables else None
+                print(f"   Tables : {[table[table_key] for table in tables[:5]]}")
 
             cursor.close()
             connection.close()
@@ -54,10 +57,11 @@ def test_connection():
         else:
             print("❌ Connexion échouée (pas d'erreur mais pas connecté)")
 
-    except Error as e:
+    except MySQLError as e:
         print(f"❌ Erreur de connexion MySQL : {e}")
-        print(f"   Code erreur : {e.errno}")
-        print(f"   Message : {e.msg}")
+        if hasattr(e, 'args') and len(e.args) >= 2:
+            print(f"   Code erreur : {e.args[0]}")
+            print(f"   Message : {e.args[1]}")
 
     except Exception as e:
         print(f"❌ Erreur inattendue : {e}")

@@ -1,25 +1,22 @@
-import mysql.connector
-from mysql.connector import Error
+import pymysql
+from pymysql import MySQLError
+
 
 def get_connection():
     try:
-        connection = mysql.connector.connect(
-            #host='127.0.0.1',
-            #port = 8889,
-            #user="root",
-            #password="root",
-            #database="ocr-sdp"
-            host='srv1420.hstgr.io',
-            port = 3306,
+        connection = pymysql.connect(
+            host="srv1420.hstgr.io",
+            port=3306,
             user="u440859155_dwain_sdp",
             password="Daventys93110@",
-            database="u440859155_sdp_test"
+            database="u440859155_sdp_test",
+            cursorclass=pymysql.cursors.DictCursor,
+            autocommit=True
         )
 
-        if connection.is_connected():
-            print("Connexion réussie")
-            return connection
+        print("Connexion MySQL réussie (PyMySQL)")
+        return connection
 
-    except Error as e:
-        print(f"Erreur de connexion : {e}")
+    except MySQLError as e:
+        print(f"Erreur de connexion MySQL : {e}")
         return None

@@ -1,8 +1,8 @@
 from typing import Dict, Any, Optional, List, Tuple
-from mysql.connector import MySQLConnection
+import pymysql
 
 
-def create(connection: MySQLConnection, user_data: Dict[str, Any]) -> Optional[int]:
+def create(connection: pymysql.connections.Connection, user_data: Dict[str, Any]) -> Optional[int]:
     """
     Crée un nouveau user dans la base de données
 
@@ -47,7 +47,7 @@ def create(connection: MySQLConnection, user_data: Dict[str, Any]) -> Optional[i
         cursor.close()
 
 
-def get_by_id(connection: MySQLConnection, user_id: int) -> Optional[Dict[str, Any]]:
+def get_by_id(connection: pymysql.connections.Connection, user_id: int) -> Optional[Dict[str, Any]]:
     """
     Récupère un user par son ID
 
@@ -59,7 +59,7 @@ def get_by_id(connection: MySQLConnection, user_id: int) -> Optional[Dict[str, A
         Dictionnaire avec les données du user ou None
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = "SELECT * FROM users WHERE id = %s"
         cursor.execute(query, (user_id,))
@@ -74,7 +74,7 @@ def get_by_id(connection: MySQLConnection, user_id: int) -> Optional[Dict[str, A
         cursor.close()
 
 
-def get_by_email(connection: MySQLConnection, email: str) -> Optional[Dict[str, Any]]:
+def get_by_email(connection: pymysql.connections.Connection, email: str) -> Optional[Dict[str, Any]]:
     """
     Récupère un user par son email
 
@@ -86,7 +86,7 @@ def get_by_email(connection: MySQLConnection, email: str) -> Optional[Dict[str, 
         Dictionnaire avec les données du user ou None
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = "SELECT * FROM users WHERE email = %s"
         cursor.execute(query, (email,))
@@ -101,7 +101,7 @@ def get_by_email(connection: MySQLConnection, email: str) -> Optional[Dict[str, 
         cursor.close()
 
 
-def get_all(connection: MySQLConnection, page: int = 1, size: int = 10,
+def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int = 10,
             search: Optional[str] = None, role: Optional[str] = None,
             team: Optional[str] = None, is_online: Optional[bool] = None) -> Tuple[List[Dict[str, Any]], int]:
     """
@@ -120,7 +120,7 @@ def get_all(connection: MySQLConnection, page: int = 1, size: int = 10,
         Tuple (liste des users, total)
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Construire la requête avec filtres
         where_clauses = []
@@ -176,7 +176,7 @@ def get_all(connection: MySQLConnection, page: int = 1, size: int = 10,
         cursor.close()
 
 
-def update(connection: MySQLConnection, user_id: int,
+def update(connection: pymysql.connections.Connection, user_id: int,
            user_data: Dict[str, Any]) -> bool:
     """
     Met à jour un user
@@ -223,7 +223,7 @@ def update(connection: MySQLConnection, user_id: int,
         cursor.close()
 
 
-def update_login_status(connection: MySQLConnection, user_id: int,
+def update_login_status(connection: pymysql.connections.Connection, user_id: int,
                        is_online: bool) -> bool:
     """
     Met à jour le statut de connexion et last_login_at
@@ -259,7 +259,7 @@ def update_login_status(connection: MySQLConnection, user_id: int,
         cursor.close()
 
 
-def delete(connection: MySQLConnection, user_id: int) -> bool:
+def delete(connection: pymysql.connections.Connection, user_id: int) -> bool:
     """
     Supprime un user
 
@@ -288,7 +288,7 @@ def delete(connection: MySQLConnection, user_id: int) -> bool:
         cursor.close()
 
 
-def get_online_users(connection: MySQLConnection) -> List[Dict[str, Any]]:
+def get_online_users(connection: pymysql.connections.Connection) -> List[Dict[str, Any]]:
     """
     Récupère tous les users en ligne
 
@@ -299,7 +299,7 @@ def get_online_users(connection: MySQLConnection) -> List[Dict[str, Any]]:
         Liste des users en ligne
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = "SELECT * FROM users WHERE is_online = 1 ORDER BY last_login_at DESC"
         cursor.execute(query)
@@ -314,7 +314,7 @@ def get_online_users(connection: MySQLConnection) -> List[Dict[str, Any]]:
         cursor.close()
 
 
-def get_by_team(connection: MySQLConnection, team: str) -> List[Dict[str, Any]]:
+def get_by_team(connection: pymysql.connections.Connection, team: str) -> List[Dict[str, Any]]:
     """
     Récupère tous les users d'une équipe
 
@@ -326,7 +326,7 @@ def get_by_team(connection: MySQLConnection, team: str) -> List[Dict[str, Any]]:
         Liste des users de l'équipe
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = "SELECT * FROM users WHERE team = %s ORDER BY first_name, last_name"
         cursor.execute(query, (team,))
@@ -341,7 +341,7 @@ def get_by_team(connection: MySQLConnection, team: str) -> List[Dict[str, Any]]:
         cursor.close()
 
 
-def get_by_role(connection: MySQLConnection, role: str) -> List[Dict[str, Any]]:
+def get_by_role(connection: pymysql.connections.Connection, role: str) -> List[Dict[str, Any]]:
     """
     Récupère tous les users d'un rôle
 
@@ -353,7 +353,7 @@ def get_by_role(connection: MySQLConnection, role: str) -> List[Dict[str, Any]]:
         Liste des users du rôle
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = "SELECT * FROM users WHERE role = %s ORDER BY first_name, last_name"
         cursor.execute(query, (role,))

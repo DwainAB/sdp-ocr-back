@@ -1,8 +1,8 @@
 from typing import Dict, Any, Optional, List, Tuple
-from mysql.connector import MySQLConnection
+import pymysql
 
 
-def create(connection: MySQLConnection, user_id: int, ip_address: str,
+def create(connection: pymysql.connections.Connection, user_id: int, ip_address: str,
           city: str, country: str, log_type: str) -> Optional[int]:
     """
     Enregistre une nouvelle connexion ou déconnexion
@@ -40,7 +40,7 @@ def create(connection: MySQLConnection, user_id: int, ip_address: str,
         cursor.close()
 
 
-def get_by_user(connection: MySQLConnection, user_id: int,
+def get_by_user(connection: pymysql.connections.Connection, user_id: int,
                page: int = 1, size: int = 10) -> Tuple[List[Dict[str, Any]], int]:
     """
     Récupère l'historique des connexions d'un utilisateur avec pagination
@@ -55,7 +55,7 @@ def get_by_user(connection: MySQLConnection, user_id: int,
         Tuple (liste des logs, total)
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Compter le total
         count_query = "SELECT COUNT(*) as total FROM login_history WHERE user_id = %s"
@@ -84,7 +84,7 @@ def get_by_user(connection: MySQLConnection, user_id: int,
         cursor.close()
 
 
-def get_all(connection: MySQLConnection, page: int = 1,
+def get_all(connection: pymysql.connections.Connection, page: int = 1,
            size: int = 10) -> Tuple[List[Dict[str, Any]], int]:
     """
     Récupère tout l'historique des connexions avec pagination
@@ -98,7 +98,7 @@ def get_all(connection: MySQLConnection, page: int = 1,
         Tuple (liste des logs avec informations utilisateur, total)
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Compter le total
         count_query = "SELECT COUNT(*) as total FROM login_history"

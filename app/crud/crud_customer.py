@@ -1,8 +1,8 @@
 from typing import Dict, Any, Optional, List, Tuple
-from mysql.connector import MySQLConnection
+import pymysql
 
 
-def create(connection: MySQLConnection, customer_data: Dict[str, Any]) -> Optional[int]:
+def create(connection: pymysql.connections.Connection, customer_data: Dict[str, Any]) -> Optional[int]:
     """
     Crée un nouveau customer dans la base de données
 
@@ -47,7 +47,7 @@ def create(connection: MySQLConnection, customer_data: Dict[str, Any]) -> Option
         cursor.close()
 
 
-def get_by_id(connection: MySQLConnection, customer_id: int) -> Optional[Dict[str, Any]]:
+def get_by_id(connection: pymysql.connections.Connection, customer_id: int) -> Optional[Dict[str, Any]]:
     """
     Récupère un customer par son ID
 
@@ -59,7 +59,7 @@ def get_by_id(connection: MySQLConnection, customer_id: int) -> Optional[Dict[st
         Dictionnaire avec les données du customer ou None
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = "SELECT * FROM customers WHERE id = %s"
         cursor.execute(query, (customer_id,))
@@ -74,7 +74,7 @@ def get_by_id(connection: MySQLConnection, customer_id: int) -> Optional[Dict[st
         cursor.close()
 
 
-def get_by_email(connection: MySQLConnection, email: str) -> Optional[Dict[str, Any]]:
+def get_by_email(connection: pymysql.connections.Connection, email: str) -> Optional[Dict[str, Any]]:
     """
     Récupère un customer par son email
 
@@ -86,7 +86,7 @@ def get_by_email(connection: MySQLConnection, email: str) -> Optional[Dict[str, 
         Dictionnaire avec les données du customer ou None
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = "SELECT * FROM customers WHERE email = %s LIMIT 1"
         cursor.execute(query, (email,))
@@ -101,7 +101,7 @@ def get_by_email(connection: MySQLConnection, email: str) -> Optional[Dict[str, 
         cursor.close()
 
 
-def get_by_phone(connection: MySQLConnection, phone: str) -> Optional[Dict[str, Any]]:
+def get_by_phone(connection: pymysql.connections.Connection, phone: str) -> Optional[Dict[str, Any]]:
     """
     Récupère un customer par son téléphone
 
@@ -113,7 +113,7 @@ def get_by_phone(connection: MySQLConnection, phone: str) -> Optional[Dict[str, 
         Dictionnaire avec les données du customer ou None
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = "SELECT * FROM customers WHERE phone = %s LIMIT 1"
         cursor.execute(query, (phone,))
@@ -128,7 +128,7 @@ def get_by_phone(connection: MySQLConnection, phone: str) -> Optional[Dict[str, 
         cursor.close()
 
 
-def get_all(connection: MySQLConnection, page: int = 1, size: int = 10,
+def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int = 10,
             search: Optional[str] = None) -> Tuple[List[Dict[str, Any]], int]:
     """
     Récupère tous les customers avec pagination et recherche
@@ -143,7 +143,7 @@ def get_all(connection: MySQLConnection, page: int = 1, size: int = 10,
         Tuple (liste des customers, total)
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Construire la requête avec recherche
         where_clause = ""
@@ -183,7 +183,7 @@ def get_all(connection: MySQLConnection, page: int = 1, size: int = 10,
         cursor.close()
 
 
-def update(connection: MySQLConnection, customer_id: int,
+def update(connection: pymysql.connections.Connection, customer_id: int,
            customer_data: Dict[str, Any]) -> bool:
     """
     Met à jour un customer
@@ -230,7 +230,7 @@ def update(connection: MySQLConnection, customer_id: int,
         cursor.close()
 
 
-def delete(connection: MySQLConnection, customer_id: int) -> bool:
+def delete(connection: pymysql.connections.Connection, customer_id: int) -> bool:
     """
     Supprime un customer
 
@@ -259,7 +259,7 @@ def delete(connection: MySQLConnection, customer_id: int) -> bool:
         cursor.close()
 
 
-def check_duplicate_email(connection: MySQLConnection, email: str) -> bool:
+def check_duplicate_email(connection: pymysql.connections.Connection, email: str) -> bool:
     """
     Vérifie si un email existe déjà
 
@@ -286,7 +286,7 @@ def check_duplicate_email(connection: MySQLConnection, email: str) -> bool:
         cursor.close()
 
 
-def check_duplicate_phone(connection: MySQLConnection, phone: str) -> bool:
+def check_duplicate_phone(connection: pymysql.connections.Connection, phone: str) -> bool:
     """
     Vérifie si un téléphone existe déjà
 

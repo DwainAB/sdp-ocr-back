@@ -1,8 +1,8 @@
 from typing import Dict, Any, Optional, List, Tuple
-from mysql.connector import MySQLConnection
+import pymysql
 
 
-def create(connection: MySQLConnection, customer_data: Dict[str, Any],
+def create(connection: pymysql.connections.Connection, customer_data: Dict[str, Any],
           review_type: str) -> Optional[int]:
     """
     Insère un customer dans la table customers_review avec un type spécifique
@@ -52,7 +52,7 @@ def create(connection: MySQLConnection, customer_data: Dict[str, Any],
         cursor.close()
 
 
-def get_by_id(connection: MySQLConnection, review_id: int) -> Optional[Dict[str, Any]]:
+def get_by_id(connection: pymysql.connections.Connection, review_id: int) -> Optional[Dict[str, Any]]:
     """
     Récupère un customer_review par son ID
 
@@ -64,7 +64,7 @@ def get_by_id(connection: MySQLConnection, review_id: int) -> Optional[Dict[str,
         Dictionnaire avec les données du customer_review ou None
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT id, last_name, first_name, phone, email, job, country, city,
@@ -84,7 +84,7 @@ def get_by_id(connection: MySQLConnection, review_id: int) -> Optional[Dict[str,
         cursor.close()
 
 
-def get_all(connection: MySQLConnection, page: int = 1, size: int = 10,
+def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int = 10,
            review_type: Optional[str] = None) -> Tuple[List[Dict[str, Any]], int]:
     """
     Récupère tous les customer_reviews avec pagination et filtre optionnel par type
@@ -99,7 +99,7 @@ def get_all(connection: MySQLConnection, page: int = 1, size: int = 10,
         Tuple (liste des customer_reviews, total)
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Construire la requête avec filtre optionnel
         where_clause = ""
@@ -137,7 +137,7 @@ def get_all(connection: MySQLConnection, page: int = 1, size: int = 10,
         cursor.close()
 
 
-def update(connection: MySQLConnection, review_id: int,
+def update(connection: pymysql.connections.Connection, review_id: int,
           customer_data: Dict[str, Any]) -> bool:
     """
     Met à jour un customer_review
@@ -184,7 +184,7 @@ def update(connection: MySQLConnection, review_id: int,
         cursor.close()
 
 
-def delete(connection: MySQLConnection, review_id: int) -> bool:
+def delete(connection: pymysql.connections.Connection, review_id: int) -> bool:
     """
     Supprime un customer_review définitivement
 
@@ -213,7 +213,7 @@ def delete(connection: MySQLConnection, review_id: int) -> bool:
         cursor.close()
 
 
-def transfer_to_customers(connection: MySQLConnection, review_id: int) -> Optional[int]:
+def transfer_to_customers(connection: pymysql.connections.Connection, review_id: int) -> Optional[int]:
     """
     Transfère un customer_review vers la table customers puis le supprime de customers_review
 
@@ -225,7 +225,7 @@ def transfer_to_customers(connection: MySQLConnection, review_id: int) -> Option
         ID du nouveau customer créé ou None si erreur
     """
     try:
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # 1. Récupérer les données du customer_review
         query = "SELECT * FROM customers_review WHERE id = %s"
