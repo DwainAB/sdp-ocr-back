@@ -52,7 +52,7 @@ class CustomerRepository:
         try:
             return crud_customer.get_by_id(connection, customer_id)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_all_customers(self, page: int = 1, size: int = 10,
@@ -75,7 +75,7 @@ class CustomerRepository:
         try:
             return crud_customer.get_all(connection, page, size, search)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def update_customer(self, customer_id: int, customer_data: Dict[str, Any]) -> bool:
@@ -103,7 +103,7 @@ class CustomerRepository:
 
             return success
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def delete_customer(self, customer_id: int) -> bool:
@@ -130,7 +130,7 @@ class CustomerRepository:
 
             return success
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
 

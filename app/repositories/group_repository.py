@@ -29,7 +29,7 @@ class GroupRepository:
                 print(f"Groupe créé avec ID: {group_id}")
             return group_id
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_group_by_id(self, group_id: int) -> Optional[Dict[str, Any]]:
@@ -49,7 +49,7 @@ class GroupRepository:
         try:
             return crud_group.get_by_id(connection, group_id, include_deleted=False)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_all_groups(self, page: int = 1, size: int = 10, search: Optional[str] = None,
@@ -73,7 +73,7 @@ class GroupRepository:
         try:
             return crud_group.get_all(connection, page, size, search, include_deleted)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def update_group(self, group_id: int, group_data: Dict[str, Any]) -> bool:
@@ -101,7 +101,7 @@ class GroupRepository:
 
             return success
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def soft_delete_group(self, group_id: int) -> bool:
@@ -128,7 +128,7 @@ class GroupRepository:
 
             return success
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def restore_group(self, group_id: int) -> bool:
@@ -155,7 +155,7 @@ class GroupRepository:
 
             return success
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     # ======================================================================
@@ -212,7 +212,7 @@ class GroupRepository:
         try:
             return crud_group.get_group_customers(connection, group_id, page, size)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_customer_groups(self, customer_id: int) -> List[Dict[str, Any]]:
@@ -232,7 +232,7 @@ class GroupRepository:
         try:
             return crud_group.get_customer_groups(connection, customer_id)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
 

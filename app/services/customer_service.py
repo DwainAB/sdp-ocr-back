@@ -46,7 +46,7 @@ class CustomerBusinessService:
             return crud_customer.create(connection, customer_data)
 
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def _map_ocr_to_customer(self, extracted_data: Dict[str, Any]) -> Dict[str, str]:
@@ -179,7 +179,7 @@ class CustomerBusinessService:
         try:
             return crud_customer.create(connection, customer_data)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
 

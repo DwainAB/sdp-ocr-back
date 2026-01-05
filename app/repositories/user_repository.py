@@ -28,7 +28,7 @@ class UserRepository:
                 print(f"User créé avec ID: {user_id}")
             return user_id
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
@@ -48,7 +48,7 @@ class UserRepository:
         try:
             return crud_user.get_by_id(connection, user_id)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
@@ -68,7 +68,7 @@ class UserRepository:
         try:
             return crud_user.get_by_email(connection, email)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_all_users(self, page: int = 1, size: int = 10, search: Optional[str] = None,
@@ -95,7 +95,7 @@ class UserRepository:
         try:
             return crud_user.get_all(connection, page, size, search, role, team, is_online)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def update_user(self, user_id: int, user_data: Dict[str, Any]) -> bool:
@@ -123,7 +123,7 @@ class UserRepository:
 
             return success
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def update_user_login_status(self, user_id: int, is_online: bool) -> bool:
@@ -150,7 +150,7 @@ class UserRepository:
 
             return success
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def delete_user(self, user_id: int) -> bool:
@@ -177,7 +177,7 @@ class UserRepository:
 
             return success
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_online_users(self) -> List[Dict[str, Any]]:
@@ -194,7 +194,7 @@ class UserRepository:
         try:
             return crud_user.get_online_users(connection)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_users_by_team(self, team: str) -> List[Dict[str, Any]]:
@@ -214,7 +214,7 @@ class UserRepository:
         try:
             return crud_user.get_by_team(connection, team)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_users_by_role(self, role: str) -> List[Dict[str, Any]]:
@@ -234,7 +234,7 @@ class UserRepository:
         try:
             return crud_user.get_by_role(connection, role)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
 

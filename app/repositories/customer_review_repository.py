@@ -36,7 +36,7 @@ class CustomerReviewRepository:
 
             return customer_review_id
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_customer_review_by_id(self, review_id: int) -> Optional[Dict[str, Any]]:
@@ -56,7 +56,7 @@ class CustomerReviewRepository:
         try:
             return crud_customer_review.get_by_id(connection, review_id)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def get_all_customer_reviews(self, page: int = 1, size: int = 10,
@@ -79,7 +79,7 @@ class CustomerReviewRepository:
         try:
             return crud_customer_review.get_all(connection, page, size, review_type)
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def update_customer_review(self, review_id: int,
@@ -108,7 +108,7 @@ class CustomerReviewRepository:
 
             return success
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def delete_customer_review(self, review_id: int) -> bool:
@@ -135,7 +135,7 @@ class CustomerReviewRepository:
 
             return success
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
     def transfer_to_customers(self, review_id: int) -> Optional[int]:
@@ -160,7 +160,7 @@ class CustomerReviewRepository:
 
             return customer_id
         finally:
-            if connection.is_connected():
+            if connection.open:
                 connection.close()
 
 
