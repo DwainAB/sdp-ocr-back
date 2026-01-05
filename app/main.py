@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.endpoints import ocr, customers, users
-from app.db.connection import get_connection
+from app.api.endpoints import ocr, customers, users, export, groups, login_history, customer_reviews
+from app.database import get_connection
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -35,6 +35,10 @@ app.add_middleware(
 app.include_router(ocr.router, prefix="/api/v1/ocr", tags=["OCR"])
 app.include_router(customers.router, prefix="/api/v1/customers", tags=["Customers"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+app.include_router(export.router, prefix="/api/v1/export", tags=["Export"])
+app.include_router(groups.router, prefix="/api/v1/groups", tags=["Groups"])
+app.include_router(login_history.router, prefix="/api/v1/login-history", tags=["Login History"])
+app.include_router(customer_reviews.router, prefix="/api/v1/customer-reviews", tags=["Customer Reviews"])
 
 @app.get("/")
 async def root():
@@ -46,6 +50,10 @@ async def root():
             "upload_pdf": "/api/v1/ocr/upload-pdf",
             "customers": "/api/v1/customers",
             "users": "/api/v1/users",
+            "export": "/api/v1/export",
+            "groups": "/api/v1/groups",
+            "login_history": "/api/v1/login-history",
+            "customer_reviews": "/api/v1/customer-reviews",
             "docs": "/docs"
         }
     }

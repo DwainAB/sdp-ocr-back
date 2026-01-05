@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
-from app.db.user_service import user_service
+from app.repositories.user_repository import user_repository
 from app.schemas.user_schemas import (
     UserCreate,
     UserUpdate,
@@ -20,14 +20,14 @@ async def create_user(user: UserCreate):
     try:
         # Vérifier si l'email existe déjà
         if user.email:
-            existing_user = user_service.get_user_by_email(user.email)
+            existing_user = user_repository.get_user_by_email(user.email)
             if existing_user:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Un user avec l'email {user.email} existe déjà"
                 )
 
-        user_id = user_service.create_user(user.dict())
+        user_id = user_repository.create_user(user.dict())
 
         if not user_id:
             raise HTTPException(
@@ -36,7 +36,7 @@ async def create_user(user: UserCreate):
             )
 
         # Récupérer le user créé
-        created_user = user_service.get_user_by_id(user_id)
+        created_user = user_repository.get_user_by_id(user_id)
         if not created_user:
             raise HTTPException(
                 status_code=500,
@@ -63,7 +63,7 @@ async def get_users(
     Récupérer tous les users avec pagination et filtres
     """
     try:
-        users, total = user_service.get_all_users(page, size, search, role, team, is_online)
+        users, total = user_repository.get_all_users(page, size, search, role, team, is_online)
 
         return UserListResponse(
             users=[UserResponse(**user) for user in users],
@@ -81,7 +81,7 @@ async def get_online_users():
     Récupérer tous les users en ligne
     """
     try:
-        users = user_service.get_online_users()
+        users = user_repository.get_online_users()
         return [UserResponse(**user) for user in users]
 
     except Exception as e:
@@ -93,7 +93,7 @@ async def get_users_by_team(team_name: str):
     Récupérer tous les users d'une équipe
     """
     try:
-        users = user_service.get_users_by_team(team_name)
+        users = user_repository.get_users_by_team(team_name)
         return [UserResponse(**user) for user in users]
 
     except Exception as e:
@@ -105,7 +105,7 @@ async def get_users_by_role(role_name: str):
     Récupérer tous les users d'un rôle
     """
     try:
-        users = user_service.get_users_by_role(role_name)
+        users = user_repository.get_users_by_role(role_name)
         return [UserResponse(**user) for user in users]
 
     except Exception as e:
@@ -117,7 +117,7 @@ async def get_user(user_id: int):
     Récupérer un user par son ID
     """
     try:
-        user = user_service.get_user_by_id(user_id)
+        user = user_repository.get_user_by_id(user_id)
 
         if not user:
             raise HTTPException(
@@ -139,7 +139,7 @@ async def update_user(user_id: int, user: UserUpdate):
     """
     try:
         # Vérifier que le user existe
-        existing_user = user_service.get_user_by_id(user_id)
+        existing_user = user_repository.get_user_by_id(user_id)
         if not existing_user:
             raise HTTPException(
                 status_code=404,
@@ -148,7 +148,7 @@ async def update_user(user_id: int, user: UserUpdate):
 
         # Vérifier si l'email est unique (si modifié)
         if user.email and user.email != existing_user.get('email'):
-            email_user = user_service.get_user_by_email(user.email)
+            email_user = user_repository.get_user_by_email(user.email)
             if email_user and email_user['id'] != user_id:
                 raise HTTPException(
                     status_code=400,
@@ -156,7 +156,7 @@ async def update_user(user_id: int, user: UserUpdate):
                 )
 
         # Mettre à jour
-        success = user_service.update_user(
+        success = user_repository.update_user(
             user_id,
             user.dict(exclude_unset=True)
         )
@@ -168,7 +168,7 @@ async def update_user(user_id: int, user: UserUpdate):
             )
 
         # Récupérer le user mis à jour
-        updated_user = user_service.get_user_by_id(user_id)
+        updated_user = user_repository.get_user_by_id(user_id)
         return UserResponse(**updated_user)
 
     except HTTPException:
@@ -183,7 +183,7 @@ async def update_user_login_status(user_id: int, login_data: UserLoginUpdate):
     """
     try:
         # Vérifier que le user existe
-        existing_user = user_service.get_user_by_id(user_id)
+        existing_user = user_repository.get_user_by_id(user_id)
         if not existing_user:
             raise HTTPException(
                 status_code=404,
@@ -191,7 +191,7 @@ async def update_user_login_status(user_id: int, login_data: UserLoginUpdate):
             )
 
         # Mettre à jour le statut
-        success = user_service.update_user_login_status(user_id, login_data.is_online)
+        success = user_repository.update_user_login_status(user_id, login_data.is_online)
 
         if not success:
             raise HTTPException(
@@ -213,7 +213,7 @@ async def delete_user(user_id: int):
     """
     try:
         # Vérifier que le user existe
-        existing_user = user_service.get_user_by_id(user_id)
+        existing_user = user_repository.get_user_by_id(user_id)
         if not existing_user:
             raise HTTPException(
                 status_code=404,
@@ -221,7 +221,7 @@ async def delete_user(user_id: int):
             )
 
         # Supprimer
-        success = user_service.delete_user(user_id)
+        success = user_repository.delete_user(user_id)
 
         if not success:
             raise HTTPException(

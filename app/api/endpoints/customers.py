@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
-from app.db.customer_service import customer_service
+from app.repositories.customer_repository import customer_repository
 from app.schemas.customer_schemas import (
     CustomerCreate,
     CustomerUpdate,
@@ -17,7 +17,7 @@ async def create_customer(customer: CustomerCreate):
     Créer un nouveau customer
     """
     try:
-        customer_id = customer_service.create_customer(customer.dict())
+        customer_id = customer_repository.create_customer(customer.dict())
 
         if not customer_id:
             raise HTTPException(
@@ -26,7 +26,7 @@ async def create_customer(customer: CustomerCreate):
             )
 
         # Récupérer le customer créé
-        created_customer = customer_service.get_customer_by_id(customer_id)
+        created_customer = customer_repository.get_customer_by_id(customer_id)
         if not created_customer:
             raise HTTPException(
                 status_code=500,
@@ -48,10 +48,24 @@ async def get_customers(
     Récupérer tous les customers avec pagination et recherche
     """
     try:
-        customers, total = customer_service.get_all_customers(page, size, search)
+        customers, total = customer_repository.get_all_customers(page, size, search)
+
+        customer_responses = []
+        for customer in customers:
+            # Assurer que verified_email est toujours présent
+            if 'verified_email' not in customer or customer['verified_email'] is None:
+                customer['verified_email'] = False
+            elif customer['verified_email'] == 0:
+                customer['verified_email'] = False
+            elif customer['verified_email'] == 1:
+                customer['verified_email'] = True
+
+            customer_response = CustomerResponse(**customer)
+            print(f"Debug - Customer {customer.get('id')}: verified_email = {customer.get('verified_email')} -> {customer_response.verified_email}")
+            customer_responses.append(customer_response)
 
         return CustomerListResponse(
-            customers=[CustomerResponse(**customer) for customer in customers],
+            customers=customer_responses,
             total=total,
             page=page,
             size=size
@@ -66,7 +80,7 @@ async def get_customer(customer_id: int):
     Récupérer un customer par son ID
     """
     try:
-        customer = customer_service.get_customer_by_id(customer_id)
+        customer = customer_repository.get_customer_by_id(customer_id)
 
         if not customer:
             raise HTTPException(
@@ -88,7 +102,7 @@ async def update_customer(customer_id: int, customer: CustomerUpdate):
     """
     try:
         # Vérifier que le customer existe
-        existing_customer = customer_service.get_customer_by_id(customer_id)
+        existing_customer = customer_repository.get_customer_by_id(customer_id)
         if not existing_customer:
             raise HTTPException(
                 status_code=404,
@@ -96,7 +110,7 @@ async def update_customer(customer_id: int, customer: CustomerUpdate):
             )
 
         # Mettre à jour
-        success = customer_service.update_customer(
+        success = customer_repository.update_customer(
             customer_id,
             customer.dict(exclude_unset=True)
         )
@@ -108,7 +122,7 @@ async def update_customer(customer_id: int, customer: CustomerUpdate):
             )
 
         # Récupérer le customer mis à jour
-        updated_customer = customer_service.get_customer_by_id(customer_id)
+        updated_customer = customer_repository.get_customer_by_id(customer_id)
         return CustomerResponse(**updated_customer)
 
     except HTTPException:
@@ -123,7 +137,7 @@ async def delete_customer(customer_id: int):
     """
     try:
         # Vérifier que le customer existe
-        existing_customer = customer_service.get_customer_by_id(customer_id)
+        existing_customer = customer_repository.get_customer_by_id(customer_id)
         if not existing_customer:
             raise HTTPException(
                 status_code=404,
@@ -131,7 +145,7 @@ async def delete_customer(customer_id: int):
             )
 
         # Supprimer
-        success = customer_service.delete_customer(customer_id)
+        success = customer_repository.delete_customer(customer_id)
 
         if not success:
             raise HTTPException(
@@ -152,7 +166,7 @@ async def get_customers_stats():
     Statistiques sur les customers
     """
     try:
-        customers, total = customer_service.get_all_customers(page=1, size=1000)
+        customers, total = customer_repository.get_all_customers(page=1, size=1000)
 
         # Calculer quelques stats basiques
         stats = {

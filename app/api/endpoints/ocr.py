@@ -3,14 +3,15 @@ from fastapi.responses import Response, FileResponse
 from typing import List
 import os
 import uuid
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 
 from app.core.mistral_client import mistral_ocr_client
 from app.utils.pdf_splitter import pdf_splitter
 from app.utils.document_classifier import document_classifier
 from app.utils.data_extractor import data_extractor
 from app.utils.csv_generator import csv_generator
-from app.db.customer_service import customer_service
+from app.repositories.customer_repository import customer_repository
 from app.schemas.ocr_schemas import OCRResponse, ProcessedPage, DocumentType
 
 router = APIRouter()
@@ -123,8 +124,10 @@ async def upload_pdf_for_ocr(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e) or repr(e)}")
 
 
+
+
 # ======================================================================
-# OCR → CSV (PRODUCTION)
+# OCR → CSV (PRODUCTION) - ANCIEN SYSTÈME SYNCHRONE
 # ======================================================================
 
 @router.post("/upload-pdf-csv")
@@ -143,7 +146,7 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
         # Split PDF into pages using pikepdf (évite limite 32MB)
         print(f"Starting PDF splitting for CSV generation: {file.filename}")
         try:
-            page_pdfs = pdf_splitter.split_pdf_to_pages(pdf_content, max_pages=10)  # Limit to 10 for testing
+            page_pdfs = pdf_splitter.split_pdf_to_pages(pdf_content, max_pages=50)  #static number for test
             if not page_pdfs:
                 raise HTTPException(status_code=400, detail="No pages found in PDF")
         except Exception as e:
@@ -152,11 +155,22 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
 
         processed_pages = []
 
-        print(f"Processing {len(page_pdfs)} pages for CSV generation")
+        # Monitoring des performances
+        start_time = time.time()
+        total_pages = len(page_pdfs)
+        page_times = []
+
+        print(f"Processing {total_pages} pages for CSV generation")
+        estimated_seconds = total_pages * 3.5
+        estimated_minutes = estimated_seconds / 60
+        print(f"📊 Estimation: {estimated_seconds:.0f}s (~{estimated_minutes:.1f} min) - {total_pages} pages at 3.5s/page")
+
         for i, page_pdf_bytes in enumerate(page_pdfs):
             page_number = i + 1
+            page_start_time = time.time()
+
             try:
-                print(f"OCR processing page {page_number} for CSV ({len(page_pdf_bytes)} bytes)")
+                print(f"[{page_number}/{total_pages}] OCR processing page {page_number} ({len(page_pdf_bytes)} bytes)")
 
                 # OCR de la page individuelle avec Mistral
                 ocr_response = await mistral_ocr_client.process_pdf_ocr(page_pdf_bytes)
@@ -173,7 +187,7 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
                 customer_id = None
                 if doc_type == DocumentType.STUDIO_PARFUMS and extracted_data:
                     try:
-                        customer_id = customer_service.insert_customer_if_not_exists(extracted_data)
+                        customer_id = customer_repository.insert_customer_if_not_exists(extracted_data)
                         if customer_id:
                             print(f"Customer créé avec ID: {customer_id} pour page {page_number}")
                         else:
@@ -194,6 +208,29 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
                 print(f"Error processing page {page_number} for CSV: {e}")
                 continue  # on ignore la page mais on continue
 
+            finally:
+                # Calculer les temps et progression
+                page_duration = time.time() - page_start_time
+                page_times.append(page_duration)
+
+                # Calcul progression et ETA
+                elapsed_time = time.time() - start_time
+                progress_percent = (page_number / total_pages) * 100
+                avg_time_per_page = elapsed_time / page_number
+                remaining_pages = total_pages - page_number
+                eta_seconds = avg_time_per_page * remaining_pages
+
+                # Logs de progression
+                print(f"Page {page_number} processed in {page_duration:.2f}s")
+                print(f"Progress: {progress_percent:.1f}% ({page_number}/{total_pages})")
+
+                if remaining_pages > 0:
+                    eta_time = datetime.now() + timedelta(seconds=eta_seconds)
+                    print(f"ETA: {eta_seconds:.0f}s remaining (finish at {eta_time.strftime('%H:%M:%S')})")
+                    print(f"Average: {avg_time_per_page:.2f}s/page")
+
+                print("─" * 50)
+
         csv_content = csv_generator.generate_studio_parfums_csv(processed_pages)
 
         if not csv_content.strip() or csv_content.count("\n") <= 1:
@@ -211,11 +248,25 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(csv_content)
 
+        # Calculs finaux de performance
+        total_duration = time.time() - start_time
+        avg_page_time = sum(page_times) / len(page_times) if page_times else 0
+        fastest_page = min(page_times) if page_times else 0
+        slowest_page = max(page_times) if page_times else 0
+
         # Compter les customers créés
         customers_created = sum(
             1 for p in processed_pages
             if p.get("customer_id") is not None
         )
+
+        # Log final
+        print(f"\n{'='*60}")
+        print(f"PROCESSING COMPLETED!")
+        print(f"Total time: {total_duration:.1f}s for {total_pages} pages")
+        print(f"Average: {avg_page_time:.2f}s/page")
+        print(f"Fastest page: {fastest_page:.2f}s | Slowest: {slowest_page:.2f}s")
+        print(f"{'='*60}\n")
 
         return {
             "success": True,
@@ -230,7 +281,16 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
                 1 for p in processed_pages
                 if p.get("document_type") == DocumentType.STUDIO_PARFUMS.value
                 and p.get("customer_id") is None
-            )
+            ),
+            "performance": {
+                "total_pages": total_pages,
+                "total_duration_seconds": round(total_duration, 2),
+                "avg_time_per_page": round(avg_page_time, 2),
+                "fastest_page_time": round(fastest_page, 2),
+                "slowest_page_time": round(slowest_page, 2),
+                "pages_per_minute": round(60 / avg_page_time, 1) if avg_page_time > 0 else 0,
+                "estimated_time_for_100_pages": round(avg_page_time * 100, 0) if avg_page_time > 0 else 0
+            }
         }
 
     except Exception as e:

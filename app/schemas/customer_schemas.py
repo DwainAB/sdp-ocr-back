@@ -12,6 +12,8 @@ class CustomerBase(BaseModel):
     city: Optional[str] = None
     country: Optional[str] = None
     reference: Optional[str] = None
+    date: Optional[str] = None
+    verified_email: Optional[bool] = None
 
 class CustomerCreate(CustomerBase):
     """Schema pour créer un customer"""
@@ -26,6 +28,7 @@ class CustomerResponse(CustomerBase):
     id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    verified_email: Optional[bool] = None
 
     class Config:
         from_attributes = True
