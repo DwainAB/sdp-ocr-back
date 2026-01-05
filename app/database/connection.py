@@ -9,7 +9,7 @@ def get_connection():
             #user="root",
             #password="root",
             #database="ocr-sdp"
-            host='27.0.0.1',
+            host='srv1420.hstgr.io',
             port = 3306,
             user="u440859155_dwain_sdp",
             password="Daventys93110@",
