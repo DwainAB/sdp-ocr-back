@@ -9,7 +9,7 @@ from app.schemas.login_history_schemas import (
 )
 from app.repositories.login_history_repository import login_history_repository
 from app.repositories.user_repository import user_repository
-from app.services.geolocation_service import geolocation_service
+from app.services.geolocation import geolocation_service
 
 router = APIRouter()
 

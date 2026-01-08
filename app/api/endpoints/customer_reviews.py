@@ -82,7 +82,7 @@ async def get_customer_review(review_id: int):
 @router.put("/{review_id}", response_model=CustomerReviewResponse)
 async def update_customer_review(review_id: int, customer_update: CustomerReviewUpdate):
     """
-    Met à jour un customer review
+    Met à jour un customer review avec validation d'email et de téléphone si modifiés
     """
     # Vérifier que le review existe
     existing_review = customer_review_repository.get_customer_review_by_id(review_id)
@@ -92,9 +92,9 @@ async def update_customer_review(review_id: int, customer_update: CustomerReview
             detail=f"Customer review avec ID {review_id} non trouvé"
         )
 
-    # Mettre à jour
+    # Mettre à jour avec validation
     update_data = customer_update.model_dump(exclude_unset=True)
-    success = customer_review_repository.update_customer_review(review_id, update_data)
+    success = customer_review_repository.update_customer_review_with_validation(review_id, update_data)
 
     if not success:
         raise HTTPException(

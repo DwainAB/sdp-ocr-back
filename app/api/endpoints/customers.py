@@ -60,8 +60,24 @@ async def get_customers(
             elif customer['verified_email'] == 1:
                 customer['verified_email'] = True
 
+            # Assurer que verified_domain est toujours présent
+            if 'verified_domain' not in customer or customer['verified_domain'] is None:
+                customer['verified_domain'] = False
+            elif customer['verified_domain'] == 0:
+                customer['verified_domain'] = False
+            elif customer['verified_domain'] == 1:
+                customer['verified_domain'] = True
+
+            # Assurer que verified_phone est toujours présent
+            if 'verified_phone' not in customer or customer['verified_phone'] is None:
+                customer['verified_phone'] = False
+            elif customer['verified_phone'] == 0:
+                customer['verified_phone'] = False
+            elif customer['verified_phone'] == 1:
+                customer['verified_phone'] = True
+
             customer_response = CustomerResponse(**customer)
-            print(f"Debug - Customer {customer.get('id')}: verified_email = {customer.get('verified_email')} -> {customer_response.verified_email}")
+            print(f"Debug - Customer {customer.get('id')}: verified_email = {customer.get('verified_email')}, verified_domain = {customer.get('verified_domain')}, verified_phone = {customer.get('verified_phone')}")
             customer_responses.append(customer_response)
 
         return CustomerListResponse(

@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional, List, Tuple
 from app.database import get_connection
 from app.crud import crud_group
-from app.services.group_service import group_business_service
+from app.services.group import group_business_service
 
 
 class GroupRepository:

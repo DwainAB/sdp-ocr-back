@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional, List, Tuple
 from app.database import get_connection
 from app.crud import crud_customer
-from app.services.customer_service import customer_business_service
+from app.services.customer import customer_business_service
 
 
 class CustomerRepository:
@@ -9,7 +9,7 @@ class CustomerRepository:
     Repository pour gérer l'accès aux données customers (Data Access Layer)
     """
 
-    def insert_customer_if_not_exists(self, extracted_data: Dict[str, Any]) -> Optional[int]:
+    def insert_customer_if_not_exists(self, extracted_data: Dict[str, Any]) -> Tuple[Optional[int], str]:
         """
         Insère un customer dans la base pour chaque PDF traité (peu importe les données)
         Délègue à customer_business_service
@@ -18,7 +18,7 @@ class CustomerRepository:
             extracted_data: Données extraites de l'OCR
 
         Returns:
-            ID du customer inséré ou None si erreur
+            Tuple (ID du customer/review inséré, type d'entité: "customer" ou "customer_review")
         """
         return customer_business_service.insert_customer_if_not_exists(extracted_data)
 
@@ -80,7 +80,8 @@ class CustomerRepository:
 
     def update_customer(self, customer_id: int, customer_data: Dict[str, Any]) -> bool:
         """
-        Met à jour un customer
+        Met à jour un customer avec validation d'email et de téléphone si modifiés
+        Délègue à customer_business_service
 
         Args:
             customer_id: ID du customer
@@ -89,22 +90,7 @@ class CustomerRepository:
         Returns:
             True si succès, False sinon
         """
-        connection = get_connection()
-        if not connection:
-            return False
-
-        try:
-            success = crud_customer.update(connection, customer_id, customer_data)
-
-            if success:
-                print(f"Customer {customer_id} mis à jour")
-            else:
-                print(f"Customer {customer_id} non trouvé")
-
-            return success
-        finally:
-            if connection.open:
-                connection.close()
+        return customer_business_service.update_customer_with_validation(customer_id, customer_data)
 
     def delete_customer(self, customer_id: int) -> bool:
         """

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.endpoints import ocr, customers, users, export, groups, login_history, customer_reviews
+from app.api.endpoints import ocr, customers, users, export, groups, login_history, customer_reviews, files
 from app.database import get_connection
 
 app = FastAPI(
@@ -39,6 +39,7 @@ app.include_router(export.router, prefix="/api/v1/export", tags=["Export"])
 app.include_router(groups.router, prefix="/api/v1/groups", tags=["Groups"])
 app.include_router(login_history.router, prefix="/api/v1/login-history", tags=["Login History"])
 app.include_router(customer_reviews.router, prefix="/api/v1/customer-reviews", tags=["Customer Reviews"])
+app.include_router(files.router, prefix="/api/v1", tags=["Files"])
 
 @app.get("/")
 async def root():
@@ -54,6 +55,7 @@ async def root():
             "groups": "/api/v1/groups",
             "login_history": "/api/v1/login-history",
             "customer_reviews": "/api/v1/customer-reviews",
+            "files": "/api/v1/files",
             "docs": "/docs"
         }
     }

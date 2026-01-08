@@ -68,7 +68,7 @@ def get_by_id(connection: pymysql.connections.Connection, review_id: int) -> Opt
 
         query = """
             SELECT id, last_name, first_name, phone, email, job, country, city,
-                   reference, date, verified_email, type
+                   reference, date, verified_email, verified_domain, verified_phone, type
             FROM customers_review
             WHERE id = %s
         """
@@ -118,7 +118,7 @@ def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int
         offset = (page - 1) * size
         query = f"""
             SELECT id, last_name, first_name, phone, email, job, country, city,
-                   reference, date, verified_email, type
+                   reference, date, verified_email, verified_domain, verified_phone, type
             FROM customers_review {where_clause}
             ORDER BY id DESC
             LIMIT %s OFFSET %s
@@ -216,13 +216,14 @@ def delete(connection: pymysql.connections.Connection, review_id: int) -> bool:
 def transfer_to_customers(connection: pymysql.connections.Connection, review_id: int) -> Optional[int]:
     """
     Transfère un customer_review vers la table customers puis le supprime de customers_review
+    Si l'email existe déjà dans customers, fusionne avec le customer existant au lieu de créer un nouveau
 
     Args:
         connection: Connexion MySQL
         review_id: ID du customer_review
 
     Returns:
-        ID du nouveau customer créé ou None si erreur
+        ID du customer (nouveau ou existant) ou None si erreur
     """
     try:
         cursor = connection.cursor()
@@ -235,34 +236,95 @@ def transfer_to_customers(connection: pymysql.connections.Connection, review_id:
         if not review_data:
             return None
 
-        # 2. Préparer les données pour customers (sans id, created_at, updated_at, type)
-        customer_data = {k: v for k, v in review_data.items()
-                       if k not in ['id', 'created_at', 'updated_at', 'type'] and v is not None and v != ""}
+        # 2. Vérifier si l'email existe déjà dans customers
+        email = review_data.get('email')
+        existing_customer_id = None
 
-        # 3. Insérer dans customers
-        if customer_data:
-            columns = list(customer_data.keys())
-            placeholders = ["%s"] * len(columns)
-            values = list(customer_data.values())
+        if email:
+            check_query = "SELECT id FROM customers WHERE email = %s LIMIT 1"
+            cursor.execute(check_query, (email,))
+            existing_customer = cursor.fetchone()
 
-            insert_query = f"""
-                INSERT INTO customers ({', '.join(columns)})
-                VALUES ({', '.join(placeholders)})
-            """
-            cursor.execute(insert_query, values)
+            if existing_customer:
+                existing_customer_id = existing_customer['id']
+                print(f"📧 Email {email} existe déjà dans customers (ID: {existing_customer_id})")
+                print(f"🔄 Fusion: Les fichiers de customer_review {review_id} seront transférés vers customer {existing_customer_id}")
+
+        # 3a. Si email existe déjà → Fusionner
+        if existing_customer_id:
+            # Transférer les fichiers de customer_review vers le customer existant
+            from app.crud import crud_customer_file
+            crud_customer_file.transfer_files_to_customer(connection, review_id, existing_customer_id)
+
+            # Déplacer physiquement les fichiers du dossier pending vers le dossier du customer
+            from app.services.file import file_storage_service
+            files = crud_customer_file.get_by_customer_review_id(connection, review_id)
+            for file in files:
+                try:
+                    old_path = file['file_path']
+                    if 'pending' in old_path:
+                        new_path = file_storage_service.move_file_to_customer(old_path, existing_customer_id)
+                        # Mettre à jour le chemin dans la base de données
+                        crud_customer_file.update(connection, file['id'], {'file_path': new_path})
+                except Exception as e:
+                    print(f"⚠️ Erreur déplacement fichier {file['id']}: {e}")
+
+            # Supprimer de customers_review
+            delete_query = "DELETE FROM customers_review WHERE id = %s"
+            cursor.execute(delete_query, (review_id,))
+
+            connection.commit()
+            print(f"✅ Fusion terminée: customer_review {review_id} fusionné avec customer {existing_customer_id}")
+            return existing_customer_id
+
+        # 3b. Si email n'existe pas → Créer nouveau customer
         else:
-            # Insertion ligne vide
-            insert_query = "INSERT INTO customers () VALUES ()"
-            cursor.execute(insert_query)
+            # Préparer les données pour customers (sans id, created_at, updated_at, type)
+            customer_data = {k: v for k, v in review_data.items()
+                           if k not in ['id', 'created_at', 'updated_at', 'type'] and v is not None and v != ""}
 
-        customer_id = cursor.lastrowid
+            # Insérer dans customers
+            if customer_data:
+                columns = list(customer_data.keys())
+                placeholders = ["%s"] * len(columns)
+                values = list(customer_data.values())
 
-        # 4. Supprimer de customers_review
-        delete_query = "DELETE FROM customers_review WHERE id = %s"
-        cursor.execute(delete_query, (review_id,))
+                insert_query = f"""
+                    INSERT INTO customers ({', '.join(columns)})
+                    VALUES ({', '.join(placeholders)})
+                """
+                cursor.execute(insert_query, values)
+            else:
+                # Insertion ligne vide
+                insert_query = "INSERT INTO customers () VALUES ()"
+                cursor.execute(insert_query)
 
-        connection.commit()
-        return customer_id
+            customer_id = cursor.lastrowid
+
+            # Transférer les fichiers vers le nouveau customer
+            from app.crud import crud_customer_file
+            crud_customer_file.transfer_files_to_customer(connection, review_id, customer_id)
+
+            # Déplacer physiquement les fichiers du dossier pending vers le dossier du customer
+            from app.services.file import file_storage_service
+            files = crud_customer_file.get_by_customer_id(connection, customer_id)
+            for file in files:
+                try:
+                    old_path = file['file_path']
+                    if 'pending' in old_path:
+                        new_path = file_storage_service.move_file_to_customer(old_path, customer_id)
+                        # Mettre à jour le chemin dans la base de données
+                        crud_customer_file.update(connection, file['id'], {'file_path': new_path})
+                except Exception as e:
+                    print(f"⚠️ Erreur déplacement fichier {file['id']}: {e}")
+
+            # Supprimer de customers_review
+            delete_query = "DELETE FROM customers_review WHERE id = %s"
+            cursor.execute(delete_query, (review_id,))
+
+            connection.commit()
+            print(f"✅ Nouveau customer créé (ID: {customer_id}) depuis customer_review {review_id}")
+            return customer_id
 
     except Exception as e:
         print(f"Erreur transfert customer review : {e}")

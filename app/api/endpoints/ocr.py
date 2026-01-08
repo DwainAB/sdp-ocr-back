@@ -12,6 +12,8 @@ from app.utils.document_classifier import document_classifier
 from app.utils.data_extractor import data_extractor
 from app.utils.csv_generator import csv_generator
 from app.repositories.customer_repository import customer_repository
+from app.repositories.customer_file_repository import customer_file_repository
+from app.services.file import file_storage_service
 from app.schemas.ocr_schemas import OCRResponse, ProcessedPage, DocumentType
 
 router = APIRouter()
@@ -146,7 +148,7 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
         # Split PDF into pages using pikepdf (évite limite 32MB)
         print(f"Starting PDF splitting for CSV generation: {file.filename}")
         try:
-            page_pdfs = pdf_splitter.split_pdf_to_pages(pdf_content, max_pages=50)  #static number for test
+            page_pdfs = pdf_splitter.split_pdf_to_pages(pdf_content, max_pages=5)  #static number for test
             if not page_pdfs:
                 raise HTTPException(status_code=400, detail="No pages found in PDF")
         except Exception as e:
@@ -185,13 +187,62 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
 
                 # Si c'est un formulaire Studio des Parfums, insérer en base de données
                 customer_id = None
+                customer_review_id = None
+                entity_type = None
+
                 if doc_type == DocumentType.STUDIO_PARFUMS and extracted_data:
                     try:
-                        customer_id = customer_repository.insert_customer_if_not_exists(extracted_data)
-                        if customer_id:
-                            print(f"Customer créé avec ID: {customer_id} pour page {page_number}")
+                        # Insérer le customer ou customer_review
+                        entity_id, entity_type = customer_repository.insert_customer_if_not_exists(extracted_data)
+
+                        if entity_id:
+                            if entity_type == "customer":
+                                customer_id = entity_id
+                                print(f"✅ Customer créé avec ID: {customer_id} pour page {page_number}")
+                            elif entity_type == "customer_review":
+                                customer_review_id = entity_id
+                                print(f"⚠️ Customer review créé avec ID: {customer_review_id} pour page {page_number}")
+
+                            # Sauvegarder le fichier PDF de cette page + conversion en images
+                            try:
+                                pdf_path, image_paths = file_storage_service.save_pdf_and_images(
+                                    page_pdf_bytes,
+                                    customer_id,  # None si customer_review
+                                    f"page_{page_number}_{file.filename}"
+                                )
+
+                                # Enregistrer le PDF dans customer_files
+                                file_data = {
+                                    'customer_id': customer_id,
+                                    'customer_review_id': customer_review_id,
+                                    'file_path': pdf_path,
+                                    'file_name': os.path.basename(pdf_path),
+                                    'file_type': 'application/pdf',
+                                    'file_size': len(page_pdf_bytes),
+                                    'uploaded_at': datetime.now()
+                                }
+                                pdf_file_id = customer_file_repository.create_customer_file(file_data)
+
+                                # Enregistrer chaque image dans customer_files
+                                for img_path in image_paths:
+                                    img_data = {
+                                        'customer_id': customer_id,
+                                        'customer_review_id': customer_review_id,
+                                        'file_path': img_path,
+                                        'file_name': os.path.basename(img_path),
+                                        'file_type': 'image/png',
+                                        'file_size': 0,  # On pourrait calculer mais pas critique
+                                        'uploaded_at': datetime.now()
+                                    }
+                                    customer_file_repository.create_customer_file(img_data)
+
+                                print(f"📁 Fichier PDF + {len(image_paths)} images sauvegardés (file_id: {pdf_file_id})")
+
+                            except Exception as e:
+                                print(f"❌ Erreur sauvegarde fichier page {page_number}: {e}")
                         else:
-                            print(f"Customer non créé pour page {page_number} (existe déjà ou données insuffisantes)")
+                            print(f"Customer non créé pour page {page_number}")
+
                     except Exception as e:
                         print(f"Erreur insertion customer page {page_number}: {e}")
 
@@ -201,7 +252,8 @@ async def upload_pdf_and_download_csv(file: UploadFile = File(...)):
                     "confidence": confidence,
                     "raw_text": raw_text,
                     "extracted_data": extracted_data,
-                    "customer_id": customer_id  # Ajouter l'ID customer pour référence
+                    "customer_id": customer_id,
+                    "customer_review_id": customer_review_id
                 })
 
             except Exception as e:

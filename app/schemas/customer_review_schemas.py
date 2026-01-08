@@ -16,6 +16,8 @@ class CustomerReviewBase(BaseModel):
     reference: Optional[str] = None
     date: Optional[str] = None
     verified_email: Optional[str] = None
+    verified_domain: Optional[str] = None
+    verified_phone: Optional[str] = None
     type: str
 
 class CustomerReviewCreate(CustomerReviewBase):
@@ -38,6 +40,8 @@ class CustomerReviewUpdate(BaseModel):
     reference: Optional[str] = None
     date: Optional[str] = None
     verified_email: Optional[str] = None
+    verified_domain: Optional[str] = None
+    verified_phone: Optional[str] = None
     type: Optional[str] = None
 
 class CustomerReviewResponse(CustomerReviewBase):
@@ -46,10 +50,10 @@ class CustomerReviewResponse(CustomerReviewBase):
     """
     id: int
 
-    @field_validator('verified_email', mode='before')
+    @field_validator('verified_email', 'verified_domain', 'verified_phone', mode='before')
     @classmethod
     def validate_verified_email(cls, v):
-        """Convertit les valeurs non-string en string pour verified_email"""
+        """Convertit les valeurs non-string en string pour verified_email, verified_domain et verified_phone"""
         if v is None:
             return None
         return str(v) if v not in [0, ""] else None
