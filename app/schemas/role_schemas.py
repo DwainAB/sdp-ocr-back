@@ -34,6 +34,7 @@ class RoleUpdate(BaseModel):
     customers_review_access: Optional[bool] = None
     formula_edit: Optional[bool] = None
     full_access: Optional[bool] = None
+    devices_access: Optional[bool] = None
 
 
 class RoleResponse(RoleBase):
