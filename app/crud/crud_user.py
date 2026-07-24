@@ -122,6 +122,20 @@ def get_by_email(connection: pymysql.connections.Connection, email: str) -> Opti
         cursor.close()
 
 
+def get_by_identifier(connection: pymysql.connections.Connection, identifier: str) -> Optional[Dict[str, Any]]:
+    try:
+        cursor = connection.cursor()
+        query = "SELECT * FROM users WHERE identifier = %s"
+        cursor.execute(query, (identifier,))
+        result = cursor.fetchone()
+        return result
+    except Exception as e:
+        print(f"Erreur récupération user par identifiant : {e}")
+        return None
+    finally:
+        cursor.close()
+
+
 def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int = 10,
             search: Optional[str] = None, role_id: Optional[int] = None,
             team: Optional[str] = None, is_online: Optional[bool] = None) -> Tuple[List[Dict[str, Any]], int]:

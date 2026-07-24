@@ -161,6 +161,51 @@ async def get_user_by_email(email: str = Query(..., description="Email de l'util
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
 
+@router.get("/by-identifier", response_model=UserWithRoleResponse)
+async def get_user_by_identifier(identifier: str = Query(..., description="Identifiant unique de l'utilisateur")):
+    """
+    Récupérer un utilisateur par son identifiant unique.
+    Utilisé pour l'authentification superviseur sur l'application tablette.
+    """
+    try:
+        clean_identifier = identifier.strip().upper()
+        user = user_repository.get_user_by_identifier(clean_identifier)
+
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Utilisateur avec l'identifiant {identifier} non trouvé"
+            )
+
+        role_data = None
+        if user.get('role_id'):
+            role = role_repository.get_role_by_id(user['role_id'])
+            if role:
+                role_data = RoleResponse(**role)
+
+        return UserWithRoleResponse(
+            id=user['id'],
+            identifier=user.get('identifier'),
+            first_name=user.get('first_name'),
+            last_name=user.get('last_name'),
+            email=user.get('email'),
+            phone=user.get('phone'),
+            job=user.get('job'),
+            is_online=user.get('is_online', False),
+            team=user.get('team'),
+            last_login_at=user.get('last_login_at'),
+            csv_download_count=user.get('csv_download_count', 0),
+            csv_download_reset_at=user.get('csv_download_reset_at'),
+            pdf_extraction_count=user.get('pdf_extraction_count', 0),
+            pdf_extraction_reset_at=user.get('pdf_extraction_reset_at'),
+            role=role_data
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(user_id: int):
     """

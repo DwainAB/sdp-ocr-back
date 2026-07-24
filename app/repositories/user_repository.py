@@ -68,6 +68,25 @@ class UserRepository:
         finally:
             connection.close()
 
+    def get_user_by_identifier(self, identifier: str) -> Optional[Dict[str, Any]]:
+        """
+        Récupère un user par son identifiant unique
+
+        Args:
+            identifier: Identifiant unique du user
+
+        Returns:
+            Dictionnaire avec les données du user ou None
+        """
+        connection = get_connection()
+        if not connection:
+            return None
+
+        try:
+            return crud_user.get_by_identifier(connection, identifier)
+        finally:
+            connection.close()
+
     def get_all_users(self, page: int = 1, size: int = 10, search: Optional[str] = None,
                      role_id: Optional[int] = None, team: Optional[str] = None,
                      is_online: Optional[bool] = None) -> Tuple[List[Dict[str, Any]], int]:
