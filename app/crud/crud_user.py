@@ -1,5 +1,22 @@
 from typing import Dict, Any, Optional, List, Tuple
 import pymysql
+import random
+import string
+
+
+def _generate_identifier(connection: pymysql.connections.Connection, last_name: Optional[str]) -> str:
+    cursor = connection.cursor()
+    try:
+        prefix = last_name[:3].upper() if last_name else "XXX"
+        prefix = prefix.ljust(3, 'X')
+        while True:
+            digits = ''.join(random.choices(string.digits, k=3))
+            identifier = f"{prefix}{digits}"
+            cursor.execute("SELECT COUNT(*) FROM users WHERE identifier = %s", (identifier,))
+            if cursor.fetchone()['COUNT(*)'] == 0:
+                return identifier
+    finally:
+        cursor.close()
 
 
 def create(connection: pymysql.connections.Connection, user_data: Dict[str, Any]) -> Optional[int]:
@@ -15,6 +32,10 @@ def create(connection: pymysql.connections.Connection, user_data: Dict[str, Any]
     """
     try:
         cursor = connection.cursor()
+
+        last_name = user_data.get('last_name')
+        identifier = _generate_identifier(connection, last_name)
+        user_data['identifier'] = identifier
 
         # Filtrer les valeurs None/vides
         clean_data = {k: v for k, v in user_data.items() if v is not None and v != ""}

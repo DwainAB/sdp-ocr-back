@@ -140,6 +140,7 @@ async def get_user_by_email(email: str = Query(..., description="Email de l'util
 
         return UserWithRoleResponse(
             id=user['id'],
+            identifier=user.get('identifier'),
             first_name=user.get('first_name'),
             last_name=user.get('last_name'),
             email=user.get('email'),

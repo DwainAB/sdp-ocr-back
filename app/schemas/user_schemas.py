@@ -13,6 +13,7 @@ class UserBase(BaseModel):
     role_id: Optional[int] = None
     is_online: Optional[bool] = False
     team: Optional[str] = None
+    identifier: Optional[str] = None
     csv_download_count: Optional[int] = 0
     csv_download_reset_at: Optional[datetime] = None
     pdf_extraction_count: Optional[int] = 0
@@ -29,6 +30,7 @@ class UserUpdate(UserBase):
 class UserResponse(UserBase):
     """Schema de réponse avec l'ID"""
     id: int
+    identifier: Optional[str] = None
     last_login_at: Optional[datetime] = None
     csv_download_count: Optional[int] = 0
     csv_download_reset_at: Optional[datetime] = None
@@ -53,6 +55,7 @@ class UserLoginUpdate(BaseModel):
 class UserWithRoleResponse(BaseModel):
     """Schema de réponse avec les infos utilisateur et son rôle complet"""
     id: int
+    identifier: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     email: Optional[str] = None
