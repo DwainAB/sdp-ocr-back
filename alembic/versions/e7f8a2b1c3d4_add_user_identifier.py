@@ -8,6 +8,7 @@ Create Date: 2026-07-24 12:00:00.000000
 from typing import Sequence, Union
 
 from alembic import op
+from sqlalchemy import text
 import random
 import string
 
@@ -33,38 +34,38 @@ def upgrade() -> None:
     connection = op.get_bind()
 
     result = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.COLUMNS "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'identifier'"
+        text("SELECT COUNT(*) FROM information_schema.COLUMNS "
+             "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'identifier'")
     ).scalar()
 
     if not result:
         op.execute("ALTER TABLE users ADD COLUMN identifier VARCHAR(10) NULL")
 
-    rows = connection.execute("SELECT id, last_name FROM users WHERE identifier IS NULL").fetchall()
+    rows = connection.execute(text("SELECT id, last_name FROM users WHERE identifier IS NULL")).fetchall()
 
     existing_ids = set()
-    existing = connection.execute("SELECT identifier FROM users WHERE identifier IS NOT NULL").fetchall()
+    existing = connection.execute(text("SELECT identifier FROM users WHERE identifier IS NOT NULL")).fetchall()
     for row in existing:
         existing_ids.add(row[0])
 
     for row in rows:
         identifier = _generate_identifier(row[1], existing_ids)
         connection.execute(
-            "UPDATE users SET identifier = %s WHERE id = %s",
-            (identifier, row[0])
+            text("UPDATE users SET identifier = :id_val WHERE id = :uid"),
+            {"id_val": identifier, "uid": row[0]}
         )
 
     col_exists = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.COLUMNS "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'identifier'"
+        text("SELECT COUNT(*) FROM information_schema.COLUMNS "
+             "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'identifier'")
     ).scalar()
 
     if col_exists:
         op.execute("ALTER TABLE users MODIFY COLUMN identifier VARCHAR(10) NOT NULL")
 
     idx_exists = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.STATISTICS "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND INDEX_NAME = 'uq_users_identifier'"
+        text("SELECT COUNT(*) FROM information_schema.STATISTICS "
+             "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND INDEX_NAME = 'uq_users_identifier'")
     ).scalar()
 
     if not idx_exists:
@@ -75,15 +76,15 @@ def downgrade() -> None:
     connection = op.get_bind()
 
     idx_exists = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.STATISTICS "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND INDEX_NAME = 'uq_users_identifier'"
+        text("SELECT COUNT(*) FROM information_schema.STATISTICS "
+             "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND INDEX_NAME = 'uq_users_identifier'")
     ).scalar()
     if idx_exists:
         op.execute("ALTER TABLE users DROP INDEX uq_users_identifier")
 
     col_exists = connection.execute(
-        "SELECT COUNT(*) FROM information_schema.COLUMNS "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'identifier'"
+        text("SELECT COUNT(*) FROM information_schema.COLUMNS "
+             "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'identifier'")
     ).scalar()
     if col_exists:
         op.execute("ALTER TABLE users DROP COLUMN identifier")
