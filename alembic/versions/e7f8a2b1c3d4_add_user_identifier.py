@@ -30,9 +30,16 @@ def _generate_identifier(last_name: str, existing_ids: set) -> str:
 
 
 def upgrade() -> None:
-    op.execute("ALTER TABLE users ADD COLUMN identifier VARCHAR(10) NULL")
-
     connection = op.get_bind()
+
+    result = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'identifier'"
+    ).scalar()
+
+    if not result:
+        op.execute("ALTER TABLE users ADD COLUMN identifier VARCHAR(10) NULL")
+
     rows = connection.execute("SELECT id, last_name FROM users WHERE identifier IS NULL").fetchall()
 
     existing_ids = set()
@@ -47,10 +54,36 @@ def upgrade() -> None:
             (identifier, row[0])
         )
 
-    op.execute("ALTER TABLE users MODIFY COLUMN identifier VARCHAR(10) NOT NULL")
-    op.execute("ALTER TABLE users ADD UNIQUE INDEX uq_users_identifier (identifier)")
+    col_exists = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'identifier'"
+    ).scalar()
+
+    if col_exists:
+        op.execute("ALTER TABLE users MODIFY COLUMN identifier VARCHAR(10) NOT NULL")
+
+    idx_exists = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.STATISTICS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND INDEX_NAME = 'uq_users_identifier'"
+    ).scalar()
+
+    if not idx_exists:
+        op.execute("CREATE UNIQUE INDEX uq_users_identifier ON users (identifier)")
 
 
 def downgrade() -> None:
-    op.execute("ALTER TABLE users DROP INDEX uq_users_identifier")
-    op.execute("ALTER TABLE users DROP COLUMN identifier")
+    connection = op.get_bind()
+
+    idx_exists = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.STATISTICS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND INDEX_NAME = 'uq_users_identifier'"
+    ).scalar()
+    if idx_exists:
+        op.execute("ALTER TABLE users DROP INDEX uq_users_identifier")
+
+    col_exists = connection.execute(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'identifier'"
+    ).scalar()
+    if col_exists:
+        op.execute("ALTER TABLE users DROP COLUMN identifier")
