@@ -5,6 +5,7 @@ from app.repositories import session_repository
 from app.schemas.session_schemas import (
     SessionCreate,
     SessionResponse,
+    AssignSupervisorRequest,
     SingleAnswerUpdate,
     SessionAnswersUpdate,
     SessionDetailResponse,
@@ -71,6 +72,14 @@ async def complete_session(session_id: int):
     if not ok:
         raise HTTPException(status_code=404, detail="Session introuvable")
     return {"status": "completed"}
+
+
+@router.patch("/sessions/{session_id}/assign-supervisor")
+async def assign_supervisor(session_id: int, payload: AssignSupervisorRequest):
+    ok = session_repository.assign_supervisor_to_session(session_id, payload.supervisor_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Session introuvable")
+    return {"status": "assigned", "supervisor_id": payload.supervisor_id}
 
 
 @router.get("/sessions/active", response_model=list[SessionResponse])

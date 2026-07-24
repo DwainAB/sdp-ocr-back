@@ -37,6 +37,16 @@ def get_session_by_id(session_id: int) -> Optional[dict]:
         conn.close()
 
 
+def assign_supervisor_to_session(session_id: int, supervisor_id: int) -> bool:
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        return crud_session.assign_supervisor(conn, session_id, supervisor_id)
+    finally:
+        conn.close()
+
+
 def update_session_status(session_id: int, status: str) -> bool:
     conn = get_connection()
     if not conn:

@@ -31,10 +31,13 @@ def get_active(connection: pymysql.connections.Connection) -> list[dict]:
     try:
         cursor = connection.cursor()
         query = """
-            SELECT id, customer_name, customer_email, status, started_at, updated_at
-            FROM sessions
-            WHERE status = 'active'
-            ORDER BY updated_at DESC, started_at DESC
+            SELECT s.id, s.customer_name, s.customer_email, s.status,
+                   s.started_at, s.updated_at, s.supervisor_id,
+                   CONCAT(u.first_name, ' ', u.last_name) AS supervisor_name
+            FROM sessions s
+            LEFT JOIN users u ON u.id = s.supervisor_id
+            WHERE s.status = 'active'
+            ORDER BY s.updated_at DESC, s.started_at DESC
         """
         cursor.execute(query)
         return cursor.fetchall() or []
@@ -54,15 +57,39 @@ def get_by_id(
     try:
         cursor = connection.cursor()
         query = """
-            SELECT id, customer_name, customer_email, status, started_at, updated_at
-            FROM sessions
-            WHERE id = %s
+            SELECT s.id, s.customer_name, s.customer_email, s.status,
+                   s.started_at, s.updated_at, s.supervisor_id,
+                   CONCAT(u.first_name, ' ', u.last_name) AS supervisor_name
+            FROM sessions s
+            LEFT JOIN users u ON u.id = s.supervisor_id
+            WHERE s.id = %s
         """
         cursor.execute(query, (session_id,))
         return cursor.fetchone()
     except Exception as e:
         print(f"Erreur recuperation session {session_id} : {e}")
         return None
+    finally:
+        if cursor:
+            cursor.close()
+
+
+def assign_supervisor(
+    connection: pymysql.connections.Connection,
+    session_id: int,
+    supervisor_id: int,
+) -> bool:
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        query = "UPDATE sessions SET supervisor_id = %s, updated_at = NOW() WHERE id = %s"
+        cursor.execute(query, (supervisor_id, session_id))
+        connection.commit()
+        return cursor.rowcount > 0
+    except Exception as e:
+        print(f"Erreur assignation superviseur session {session_id} : {e}")
+        connection.rollback()
+        return False
     finally:
         if cursor:
             cursor.close()

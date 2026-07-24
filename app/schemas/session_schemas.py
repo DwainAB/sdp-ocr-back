@@ -15,6 +15,12 @@ class SessionResponse(BaseModel):
     status: str
     started_at: datetime
     updated_at: Optional[datetime] = None
+    supervisor_id: Optional[int] = None
+    supervisor_name: Optional[str] = None
+
+
+class AssignSupervisorRequest(BaseModel):
+    supervisor_id: int
 
 
 class AnswerEntry(BaseModel):
