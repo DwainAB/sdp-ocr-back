@@ -24,6 +24,7 @@ class TabletSubmissionCreate(BaseModel):
     rgpd_consent: bool
     quantity: Optional[str] = None
     perfume_name: Optional[str] = None
+    supervisor_id: Optional[int] = None
     top_notes: List[TabletNote] = []
     heart_notes: List[TabletNote] = []
     base_notes: List[TabletNote] = []

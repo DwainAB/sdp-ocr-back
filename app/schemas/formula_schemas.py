@@ -50,6 +50,7 @@ class FormulaBase(BaseModel):
     date: Optional[str] = None
     quantity: Optional[str] = None
     source: Optional[str] = None
+    supervisor_id: Optional[int] = None
 
 
 class FormulaCreate(FormulaBase):
@@ -85,6 +86,7 @@ class FormulaResponse(FormulaBase):
     Schéma de réponse pour une formule avec ses notes
     """
     id: int
+    supervisor_name: Optional[str] = None
     top_notes: List[NoteResponse] = []
     heart_notes: List[NoteResponse] = []
     base_notes: List[NoteResponse] = []

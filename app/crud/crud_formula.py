@@ -12,6 +12,7 @@ def create(
     date: Optional[str] = None,
     quantity: Optional[str] = None,
     source: Optional[str] = None,
+    supervisor_id: Optional[int] = None,
 ) -> Optional[int]:
     """
     Crée une nouvelle formule liée à un customer (ou customer_review) et à un fichier.
@@ -48,6 +49,8 @@ def create(
             data["quantity"] = quantity
         if source is not None:
             data["source"] = source
+        if supervisor_id is not None:
+            data["supervisor_id"] = supervisor_id
 
         columns = list(data.keys())
         placeholders = ["%s"] * len(columns)
@@ -91,9 +94,13 @@ def get_by_id(
         cursor = connection.cursor()
 
         query = """
-            SELECT id, customer_id, file_id, customer_review_id, comment, reference, perfume_name, date, quantity, source, reuse_count
-            FROM formula
-            WHERE id = %s
+            SELECT f.id, f.customer_id, f.file_id, f.customer_review_id, f.comment,
+                   f.reference, f.perfume_name, f.date, f.quantity, f.source, f.reuse_count,
+                   f.supervisor_id,
+                   CONCAT(u.first_name, ' ', u.last_name) AS supervisor_name
+            FROM formula f
+            LEFT JOIN users u ON u.id = f.supervisor_id
+            WHERE f.id = %s
         """
         cursor.execute(query, (formula_id,))
         result = cursor.fetchone()

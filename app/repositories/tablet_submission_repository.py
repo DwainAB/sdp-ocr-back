@@ -83,6 +83,7 @@ class TabletSubmissionRepository:
                 date=now.strftime("%Y-%m-%d"),
                 quantity=submission.quantity,
                 source="tablet",
+                supervisor_id=submission.supervisor_id,
             )
             if not formula_id:
                 return None, "Échec de la création de la formule"
