@@ -172,7 +172,10 @@ def get_by_phone_normalized(connection: pymysql.connections.Connection, phone: s
 
 def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int = 10,
             search: Optional[str] = None, v2: bool = False,
-            country: Optional[str] = None) -> Tuple[List[Dict[str, Any]], int]:
+            country: Optional[str] = None,
+            year: Optional[str] = None,
+            month: Optional[str] = None,
+            verified: Optional[str] = None) -> Tuple[List[Dict[str, Any]], int]:
     """
     Récupère tous les customers avec pagination et recherche
 
@@ -183,6 +186,9 @@ def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int
         search: Terme de recherche (nom, email, téléphone, ville, référence de formule)
         v2: Filtre par version du formulaire
         country: Filtre par pays
+        year: Filtre par année (created_at ou référence de formule)
+        month: Filtre par mois (1-12, basé sur created_at)
+        verified: Filtre email vérifié ("true" ou "false")
 
     Returns:
         Tuple (liste des customers, total)
@@ -196,6 +202,31 @@ def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int
         if country:
             conditions.append("customers.country = %s")
             params.append(country)
+
+        if year:
+            year_expr = """
+                COALESCE(
+                    YEAR(customers.created_at),
+                    (
+                        SELECT CAST(LEFT(formula.reference, 4) AS UNSIGNED)
+                        FROM formula
+                        WHERE formula.customer_id = customers.id
+                            AND formula.reference REGEXP '^[0-9]{4}'
+                        ORDER BY formula.id ASC
+                        LIMIT 1
+                    )
+                )
+            """
+            conditions.append(f"{year_expr} = %s")
+            params.append(int(year))
+
+        if month:
+            conditions.append("MONTH(customers.created_at) = %s")
+            params.append(int(month))
+
+        if verified is not None:
+            conditions.append("customers.verified_email = %s")
+            params.append(1 if verified == 'true' else 0)
 
         if search:
             search_param = f"%{search}%"

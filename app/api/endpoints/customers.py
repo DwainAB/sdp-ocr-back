@@ -47,13 +47,17 @@ async def get_customers(
     size: int = Query(10, ge=1, le=100, description="Taille de page"),
     search: Optional[str] = Query(None, description="Recherche dans nom, email, téléphone, ville, référence de formule"),
     v2: bool = Query(False, description="Filtrer par version du formulaire (true=v2, false=v1)"),
-    country: Optional[str] = Query(None, description="Filtrer par pays")
+    country: Optional[str] = Query(None, description="Filtrer par pays"),
+    year: Optional[str] = Query(None, description="Filtrer par année (création ou référence)"),
+    month: Optional[str] = Query(None, description="Filtrer par mois (1-12)"),
+    verified: Optional[str] = Query(None, description="Filtrer par email vérifié (true/false)")
 ):
     """
-    Récupérer tous les customers avec pagination, recherche et filtre pays
+    Récupérer tous les customers avec pagination et filtres
     """
     try:
-        customers, total = customer_repository.get_all_customers(page, size, search, v2, country)
+        customers, total = customer_repository.get_all_customers(page, size, search, v2,
+                                                                 country, year, month, verified)
 
         customer_responses = []
         for customer in customers:
