@@ -1,3 +1,4 @@
+import re
 from typing import Dict, Any, Optional, List, Tuple
 from app.database import get_connection
 from app.crud import crud_customer
@@ -194,7 +195,10 @@ class CustomerRepository:
 
     def get_countries(self) -> List[str]:
         """
-        Récupère la liste des pays distincts
+        Récupère la liste des pays distincts, nettoyée :
+        - Supprime les entrées contenant un chiffre
+        - Supprime les caractères spéciaux (garde lettres, espaces, tirets, apostrophes)
+        - Déduplique et trie
 
         Returns:
             Liste des pays triés alphabétiquement
@@ -204,7 +208,22 @@ class CustomerRepository:
             return []
 
         try:
-            return crud_customer.get_countries(connection)
+            raw = crud_customer.get_countries(connection)
+            seen = set()
+            result = []
+            for c in raw:
+                if not c:
+                    continue
+                cleaned = re.sub(r"[^a-zA-ZÀ-ÿ\s\-']", '', c).strip()
+                if not cleaned:
+                    continue
+                if re.search(r'\d', cleaned):
+                    continue
+                key = cleaned.lower()
+                if key not in seen:
+                    seen.add(key)
+                    result.append(cleaned)
+            return sorted(result)
         finally:
             connection.close()
 
