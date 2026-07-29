@@ -171,7 +171,8 @@ def get_by_phone_normalized(connection: pymysql.connections.Connection, phone: s
 
 
 def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int = 10,
-            search: Optional[str] = None, v2: bool = False) -> Tuple[List[Dict[str, Any]], int]:
+            search: Optional[str] = None, v2: bool = False,
+            country: Optional[str] = None) -> Tuple[List[Dict[str, Any]], int]:
     """
     Récupère tous les customers avec pagination et recherche
 
@@ -181,6 +182,7 @@ def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int
         size: Taille de page
         search: Terme de recherche (nom, email, téléphone, ville, référence de formule)
         v2: Filtre par version du formulaire
+        country: Filtre par pays
 
     Returns:
         Tuple (liste des customers, total)
@@ -190,6 +192,10 @@ def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int
 
         conditions = ["customers.v2 = %s"]
         params = [v2]
+
+        if country:
+            conditions.append("customers.country = %s")
+            params.append(country)
 
         if search:
             search_param = f"%{search}%"

@@ -112,7 +112,8 @@ class CustomerRepository:
             connection.close()
 
     def get_all_customers(self, page: int = 1, size: int = 10,
-                         search: Optional[str] = None, v2: bool = False) -> Tuple[List[Dict[str, Any]], int]:
+                         search: Optional[str] = None, v2: bool = False,
+                         country: Optional[str] = None) -> Tuple[List[Dict[str, Any]], int]:
         """
         Récupère les customers avec pagination et recherche (sans formules/notes,
         non utilisées par la liste, pour éviter le N+1 sur chaque page)
@@ -121,6 +122,7 @@ class CustomerRepository:
             page: Numéro de page
             size: Taille de page
             search: Terme de recherche
+            country: Filtre par pays
 
         Returns:
             Tuple (liste des customers, total)
@@ -130,7 +132,7 @@ class CustomerRepository:
             return [], 0
 
         try:
-            customers, total = crud_customer.get_all(connection, page, size, search, v2)
+            customers, total = crud_customer.get_all(connection, page, size, search, v2, country)
             return customers, total
         finally:
             connection.close()
