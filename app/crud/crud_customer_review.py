@@ -290,6 +290,20 @@ def transfer_to_customers(connection: pymysql.connections.Connection, review_id:
 
         # 3a. Si email existe déjà → Fusionner
         if existing_customer_id:
+            # Mettre à jour les informations du customer existant
+            customer_data = {k: v for k, v in review_data.items()
+                           if k not in ['id', 'created_at', 'updated_at', 'type'] and v is not None and v != ""}
+            if customer_data:
+                set_clauses = [f"{col} = %s" for col in customer_data.keys()]
+                values = list(customer_data.values())
+                values.append(existing_customer_id)
+                update_query = f"""
+                    UPDATE customers
+                    SET {', '.join(set_clauses)}
+                    WHERE id = %s
+                """
+                cursor.execute(update_query, values)
+
             # Transférer les fichiers de customer_review vers le customer existant
             from app.crud import crud_customer_file, crud_formula
             crud_customer_file.transfer_files_to_customer(connection, review_id, existing_customer_id)

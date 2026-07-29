@@ -8,16 +8,16 @@ import pymysql
 from pymysql.cursors import DictCursor
 import time
 
-SRC_HOST = "srv1420.hstgr.io"
-SRC_PORT = 3306
-SRC_USER = "u440859155_dwain_sdp"
-SRC_PASS = "Daventys93110@"
-SRC_DB   = "u440859155_sdp_test"
+SRC_HOST = "hayabusa.proxy.rlwy.net"
+SRC_PORT = 48407
+SRC_USER = "root"
+SRC_PASS = "FyLZUxjrjEKlFdOXnUHqJWclKKiARzVE"
+SRC_DB   = "railway"
 
 DST_HOST = "sakura.proxy.rlwy.net"
-DST_PORT = 51932
+DST_PORT = 18139
 DST_USER = "root"
-DST_PASS = "wGvdGEDZsWIkPEZZISMLlbSfGnDmAyvJ"
+DST_PASS = "EdMdDyEScLfgbzeQjUcdiZVLYRPdvxtt"
 DST_DB   = "railway"
 
 
@@ -144,7 +144,7 @@ def insert_data(conn, table, columns, rows, batch_size=50):
 
 def main():
     print("═" * 60)
-    print("TRANSFERT HOSTINGER → RAILWAY")
+    print("TRANSFERT RAILWAY → RAILWAY")
     print("═" * 60)
 
     # PHASE 1 : Connexion et listage

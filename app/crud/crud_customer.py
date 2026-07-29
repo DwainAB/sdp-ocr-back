@@ -466,6 +466,37 @@ def get_analytics(connection: pymysql.connections.Connection) -> Dict[str, Any]:
         cursor.close()
 
 
+def get_countries(connection: pymysql.connections.Connection) -> List[str]:
+    """
+    Récupère la liste des pays distincts dans la table customers
+
+    Args:
+        connection: Connexion MySQL
+
+    Returns:
+        Liste des pays triés alphabétiquement
+    """
+    try:
+        cursor = connection.cursor()
+
+        query = """
+            SELECT DISTINCT country
+            FROM customers
+            WHERE country IS NOT NULL AND country != ''
+            ORDER BY country ASC
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+        return [row['country'] for row in rows]
+
+    except Exception as e:
+        print(f"Erreur récupération pays : {e}")
+        return []
+    finally:
+        cursor.close()
+
+
 def check_duplicate_phone(connection: pymysql.connections.Connection, phone: str) -> bool:
     """
     Vérifie si un téléphone existe déjà

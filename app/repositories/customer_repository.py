@@ -192,6 +192,22 @@ class CustomerRepository:
         finally:
             connection.close()
 
+    def get_countries(self) -> List[str]:
+        """
+        Récupère la liste des pays distincts
+
+        Returns:
+            Liste des pays triés alphabétiquement
+        """
+        connection = get_connection()
+        if not connection:
+            return []
+
+        try:
+            return crud_customer.get_countries(connection)
+        finally:
+            connection.close()
+
     def bulk_update_customers(self, updates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Met à jour plusieurs customers en masse

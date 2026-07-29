@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
+from typing import Optional, List
 
 from app.repositories.customer_repository import customer_repository
 from app.schemas.customer_schemas import (
@@ -132,6 +132,17 @@ async def get_customers_analytics():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
 
+
+@router.get("/countries", response_model=List[str])
+async def get_countries():
+    """
+    Récupère la liste des pays distincts
+    """
+    try:
+        countries = customer_repository.get_countries()
+        return countries
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
 
 @router.get("/{customer_id}", response_model=CustomerResponse)
 async def get_customer(customer_id: int):

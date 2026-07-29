@@ -47,7 +47,7 @@ class TabletSubmissionRepository:
                 if existing:
                     matched_by = "email"
             if not existing and phone:
-                existing = crud_customer.get_by_phone(connection, phone)
+                existing = crud_customer.get_by_phone_normalized(connection, phone)
                 if existing:
                     matched_by = "phone"
 
