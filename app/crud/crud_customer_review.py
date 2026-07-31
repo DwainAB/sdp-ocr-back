@@ -1,4 +1,5 @@
 from typing import Dict, Any, Optional, List, Tuple
+from datetime import datetime
 import pymysql
 
 
@@ -337,6 +338,10 @@ def transfer_to_customers(connection: pymysql.connections.Connection, review_id:
             # Préparer les données pour customers (sans id, created_at, updated_at, type)
             customer_data = {k: v for k, v in review_data.items()
                            if k not in ['id', 'created_at', 'updated_at', 'type'] and v is not None and v != ""}
+
+            # La colonne customers.date est NOT NULL sans valeur par défaut
+            if 'date' not in customer_data:
+                customer_data['date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
             # Insérer dans customers
             if customer_data:
