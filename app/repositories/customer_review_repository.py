@@ -139,58 +139,33 @@ class CustomerReviewRepository:
             # 1) Récupération de base depuis customers_review
             reviews, total = crud_customer_review.get_all(connection, page, size, review_type, search, v2)
 
-            # 2) Pour chaque review, récupérer les formules + notes associées
-            def _get_notes(table_name: str, formula_id: int) -> List[Dict[str, Any]]:
-                cursor = connection.cursor()
-                try:
-                    query = f"""
-                        SELECT id, name, quantity
-                        FROM {table_name}
-                        WHERE formula_id = %s
-                        ORDER BY id ASC
-                    """
-                    cursor.execute(query, (formula_id,))
-                    return cursor.fetchall()
-                except Exception as e:
-                    print(f"Erreur récupération notes depuis {table_name} pour formula_id={formula_id} : {e}")
-                    return []
-                finally:
-                    cursor.close()
+            # 2) Récupérer les formules de toutes les reviews de la page en UNE seule requête (évite le N+1)
+            review_ids = [r.get("id") for r in reviews if r.get("id")]
+            formulas_by_review: Dict[int, List[Dict[str, Any]]] = {}
 
-            def _get_formulas_for_review(review_id: int) -> List[Dict[str, Any]]:
+            if review_ids:
                 cursor = connection.cursor()
                 try:
-                    # On passe par customer_files pour lier customers_review → files → formula
-                    query = """
-                        SELECT f.id, f.customer_id, f.file_id, f.comment, f.reference, f.perfume_name
+                    placeholders = ", ".join(["%s"] * len(review_ids))
+                    query = f"""
+                        SELECT f.id, f.customer_id, f.file_id, f.comment, f.reference, f.perfume_name,
+                               cf.customer_review_id
                         FROM formula f
                         JOIN customer_files cf ON cf.id = f.file_id
-                        WHERE cf.customer_review_id = %s
+                        WHERE cf.customer_review_id IN ({placeholders})
                         ORDER BY f.id ASC
                     """
-                    cursor.execute(query, (review_id,))
-                    formulas = cursor.fetchall() or []
-
-                    for formula in formulas:
-                        formula_id = formula["id"]
-                        formula["top_notes"] = _get_notes("top_note", formula_id)
-                        formula["heart_notes"] = _get_notes("heart_note", formula_id)
-                        formula["base_notes"] = _get_notes("base_note", formula_id)
-
-                    return formulas
+                    cursor.execute(query, review_ids)
+                    for formula in cursor.fetchall() or []:
+                        review_id = formula.pop("customer_review_id")
+                        formulas_by_review.setdefault(review_id, []).append(formula)
                 except Exception as e:
-                    print(f"Erreur récupération formules pour customer_review_id={review_id} : {e}")
-                    return []
+                    print(f"Erreur récupération formules pour customer_reviews {review_ids} : {e}")
                 finally:
                     cursor.close()
 
-            for review in reviews:
-                try:
-                    review_id = review.get("id")
-                    if review_id:
-                        review["formulas"] = _get_formulas_for_review(review_id)
-                except Exception as e:
-                    print(f"Erreur enrichissement formulas pour review {review.get('id')}: {e}")
+                for review in reviews:
+                    review["formulas"] = formulas_by_review.get(review.get("id"), [])
 
             return reviews, total
         finally:
