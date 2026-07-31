@@ -34,8 +34,6 @@ async def _process_pdf_job(job_id: str, pdf_content: bytes, filename: str, v2: b
     """Traitement OCR complet en tâche de fond. Met à jour _jobs[job_id] au fil du traitement."""
     job = _jobs[job_id]
     try:
-        os.makedirs(GENERATED_DIR, exist_ok=True)
-
         try:
             page_pdfs = pdf_splitter.split_pdf_to_pages(pdf_content)
             if not page_pdfs:
