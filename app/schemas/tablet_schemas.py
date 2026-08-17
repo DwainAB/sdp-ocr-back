@@ -81,3 +81,26 @@ class FormulaReuseResponse(BaseModel):
     """Résultat de l'incrémentation du compteur de réutilisation"""
     formula_id: int
     reuse_count: int
+
+
+class SuggestQuantitiesRequest(BaseModel):
+    """Notes choisies + préférences client, pour dosage IA en ml"""
+    top_notes: List[str] = []
+    heart_notes: List[str] = []
+    base_notes: List[str] = []
+    intensity: str = Field(..., description="'light', 'moderate' ou 'strong' (libellé localisé accepté)")
+    total_volume_ml: float = Field(..., gt=0, description="Taille du flacon souhaitée, en ml")
+
+
+class SuggestedNoteQuantity(BaseModel):
+    """Quantité en ml calculée par l'IA pour une note"""
+    name: str
+    quantity_ml: float
+
+
+class SuggestQuantitiesResponse(BaseModel):
+    """Répartition en ml de chaque note, calculée par l'IA selon l'intensité et le volume total"""
+    top_notes: List[SuggestedNoteQuantity] = []
+    heart_notes: List[SuggestedNoteQuantity] = []
+    base_notes: List[SuggestedNoteQuantity] = []
+    total_volume_ml: float

@@ -7,6 +7,10 @@ class Settings:
     MISTRAL_API_KEY: str = os.getenv("MISTRAL_API_KEY")
     PROJECT_NAME: str = "SDP OCR Backend"
 
+    # OpenAI (répartition intelligente des quantités de notes olfactives)
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
     # Configuration SMTP Gmail
     SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", 587))

@@ -9,11 +9,15 @@ from app.schemas.tablet_schemas import (
     FormulaReuseResponse,
     NoteCatalogItem,
     NotesCatalogResponse,
+    SuggestedNoteQuantity,
+    SuggestQuantitiesRequest,
+    SuggestQuantitiesResponse,
     TabletSubmissionCreate,
     TabletSubmissionResponse,
 )
 from app.repositories.tablet_submission_repository import tablet_submission_repository
 from app.repositories.tablet_customer_repository import tablet_customer_repository
+from app.services.perfumer import perfumer_service
 from app.utils.note_corrector import NoteCorrector
 
 router = APIRouter()
@@ -38,6 +42,39 @@ async def get_notes_catalog():
         top_notes=_items("T"),
         heart_notes=_items("C"),
         base_notes=_items("F"),
+    )
+
+
+@router.post("/formulas/suggest-quantities", response_model=SuggestQuantitiesResponse)
+async def suggest_note_quantities(request: SuggestQuantitiesRequest):
+    """
+    Calcule intelligemment (IA) la quantité en ml de chaque note choisie,
+    à partir de l'intensité souhaitée et du volume total du flacon.
+    Ne persiste rien : le front envoie ensuite la soumission finale (avec les
+    quantités, éventuellement ajustées) à /submissions.
+    """
+    if not request.top_notes and not request.heart_notes and not request.base_notes:
+        raise HTTPException(status_code=422, detail="Au moins une note est requise")
+
+    quantities = perfumer_service.suggest_quantities(
+        top_notes=request.top_notes,
+        heart_notes=request.heart_notes,
+        base_notes=request.base_notes,
+        intensity=request.intensity,
+        total_volume_ml=request.total_volume_ml,
+    )
+
+    def _to_items(family: str, notes: list[str]) -> list[SuggestedNoteQuantity]:
+        return [
+            SuggestedNoteQuantity(name=note, quantity_ml=quantities[family][note])
+            for note in notes
+        ]
+
+    return SuggestQuantitiesResponse(
+        top_notes=_to_items("top", request.top_notes),
+        heart_notes=_to_items("heart", request.heart_notes),
+        base_notes=_to_items("base", request.base_notes),
+        total_volume_ml=request.total_volume_ml,
     )
 
 
