@@ -99,23 +99,28 @@ class PerfumerService:
         intensity: str,
         total_volume_ml: float,
     ) -> dict:
+        # Le mode "strict" d'OpenAI n'autorise pas les objets à clés dynamiques
+        # (additionalProperties) : chaque "properties" doit lister exhaustivement
+        # ses clés dans "required". On utilise donc une liste plate d'objets
+        # {family, name, quantity_ml} plutôt qu'un dict par note.
         schema = {
             "type": "object",
             "properties": {
-                "top": {
-                    "type": "object",
-                    "additionalProperties": {"type": "number"},
-                },
-                "heart": {
-                    "type": "object",
-                    "additionalProperties": {"type": "number"},
-                },
-                "base": {
-                    "type": "object",
-                    "additionalProperties": {"type": "number"},
+                "notes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "family": {"type": "string", "enum": ["top", "heart", "base"]},
+                            "name": {"type": "string"},
+                            "quantity_ml": {"type": "number"},
+                        },
+                        "required": ["family", "name", "quantity_ml"],
+                        "additionalProperties": False,
+                    },
                 },
             },
-            "required": ["top", "heart", "base"],
+            "required": ["notes"],
             "additionalProperties": False,
         }
 
@@ -174,9 +179,10 @@ Règles de dosage à respecter :
   compte de leur puissance olfactive typique (une note très puissante comme le musc, le patchouli,
   l'oud ou la vanille doit recevoir une part plus faible qu'une note légère comme les agrumes ou le thé vert).
 - Chaque quantité doit être un nombre positif en ml, arrondi à 0.1 ml.
-- N'inclus dans le JSON que les notes listées ci-dessus, réparties dans "top", "heart", "base".
+- N'inclus dans le JSON qu'une entrée par note listée ci-dessus (family = "top"/"heart"/"base",
+  name = nom exact de la note, quantity_ml = quantité en ml).
 
-Réponds uniquement avec le JSON du schéma demandé (clé = nom exact de la note, valeur = ml).
+Réponds uniquement avec le JSON du schéma demandé.
 """.strip()
 
     # ── Validation / garde-fou ──
@@ -192,8 +198,16 @@ Réponds uniquement avec le JSON du schéma demandé (clé = nom exact de la not
         expected = {"top": top_notes, "heart": heart_notes, "base": base_notes}
         fixed: Dict[str, Dict[str, float]] = {"top": {}, "heart": {}, "base": {}}
 
+        # La réponse LLM est une liste plate [{family, name, quantity_ml}, ...]
+        by_family: Dict[str, Dict[str, float]] = {"top": {}, "heart": {}, "base": {}}
+        for entry in result.get("notes") or []:
+            family = entry.get("family")
+            name = entry.get("name")
+            if family in by_family and isinstance(name, str):
+                by_family[family][name] = entry.get("quantity_ml")
+
         for family, notes in expected.items():
-            family_values = result.get(family) or {}
+            family_values = by_family[family]
             for note in notes:
                 value = family_values.get(note)
                 if not isinstance(value, (int, float)) or value <= 0:
