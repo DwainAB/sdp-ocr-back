@@ -90,6 +90,9 @@ class SuggestQuantitiesRequest(BaseModel):
     base_notes: List[str] = []
     intensity: str = Field(..., description="'light', 'moderate' ou 'strong' (libellé localisé accepté)")
     total_volume_ml: float = Field(..., gt=0, description="Taille du flacon souhaitée, en ml")
+    box_set: Optional[str] = Field(
+        None, description="Coffret choisi (ex: 'Classic'), pour appliquer les bonnes règles de dosage max"
+    )
 
 
 class SuggestedNoteQuantity(BaseModel):

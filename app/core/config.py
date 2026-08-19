@@ -11,6 +11,11 @@ class Settings:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
+    # Dashboard SDP (règles de dosage max par ingrédient/coffret/flacon)
+    DASHBOARD_API_URL: str = os.getenv(
+        "DASHBOARD_API_URL", "https://sdp-dashboard-back-production.up.railway.app"
+    )
+
     # Configuration SMTP Gmail
     SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", 587))

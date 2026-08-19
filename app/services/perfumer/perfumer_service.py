@@ -69,24 +69,31 @@ class PerfumerService:
         base_notes: List[str],
         intensity: str,
         total_volume_ml: float,
+        max_dosage_by_note: Optional[Dict[str, float]] = None,
     ) -> Dict[str, Dict[str, float]]:
         """
         Retourne {"top": {note: ml, ...}, "heart": {...}, "base": {...}}
         dont la somme vaut exactement total_volume_ml (arrondi à 0.1 ml).
+
+        max_dosage_by_note : plafonds en ml par note (règles du dashboard, selon
+        le coffret / la taille de flacon / l'intensité), à ne jamais dépasser.
         """
         normalized_intensity = normalize_intensity(intensity)
+        max_dosage_by_note = max_dosage_by_note or {}
 
         try:
             result = self._ask_llm(
-                top_notes, heart_notes, base_notes, normalized_intensity, total_volume_ml
+                top_notes, heart_notes, base_notes, normalized_intensity, total_volume_ml,
+                max_dosage_by_note,
             )
             return self._validate_and_fix(
-                result, top_notes, heart_notes, base_notes, total_volume_ml
+                result, top_notes, heart_notes, base_notes, total_volume_ml, max_dosage_by_note,
             )
         except Exception as e:
             logger.warning(f"[PerfumerService] Échec de l'appel IA, fallback déterministe : {e}")
             return self._fallback_split(
-                top_notes, heart_notes, base_notes, normalized_intensity, total_volume_ml
+                top_notes, heart_notes, base_notes, normalized_intensity, total_volume_ml,
+                max_dosage_by_note,
             )
 
     # ── Appel LLM ──
@@ -98,6 +105,7 @@ class PerfumerService:
         base_notes: List[str],
         intensity: str,
         total_volume_ml: float,
+        max_dosage_by_note: Dict[str, float],
     ) -> dict:
         # Le mode "strict" d'OpenAI n'autorise pas les objets à clés dynamiques
         # (additionalProperties) : chaque "properties" doit lister exhaustivement
@@ -124,7 +132,9 @@ class PerfumerService:
             "additionalProperties": False,
         }
 
-        prompt = self._build_prompt(top_notes, heart_notes, base_notes, intensity, total_volume_ml)
+        prompt = self._build_prompt(
+            top_notes, heart_notes, base_notes, intensity, total_volume_ml, max_dosage_by_note,
+        )
 
         response = self.client.chat.completions.create(
             model=settings.OPENAI_MODEL,
@@ -156,8 +166,27 @@ class PerfumerService:
         base_notes: List[str],
         intensity: str,
         total_volume_ml: float,
+        max_dosage_by_note: Dict[str, float],
     ) -> str:
         concentration = _CONCENTRATION_BY_INTENSITY[intensity]
+
+        max_dosage_section = ""
+        applicable_caps = {
+            note: cap
+            for note, cap in max_dosage_by_note.items()
+            if note in top_notes or note in heart_notes or note in base_notes
+        }
+        if applicable_caps:
+            caps_lines = "\n".join(
+                f"- {note} : maximum {cap} ml (règle de sécurité/dosage imposée, à respecter strictement)"
+                for note, cap in applicable_caps.items()
+            )
+            max_dosage_section = f"""
+
+Contraintes de dosage maximum à respecter IMPÉRATIVEMENT (ne jamais dépasser, même
+si cela réduit le volume total de notes en-dessous de la cible d'intensité) :
+{caps_lines}"""
+
         return f"""
 Compose le dosage d'un parfum sur-mesure pour un flacon de {total_volume_ml} ml.
 
@@ -180,7 +209,7 @@ Règles de dosage à respecter :
   l'oud ou la vanille doit recevoir une part plus faible qu'une note légère comme les agrumes ou le thé vert).
 - Chaque quantité doit être un nombre positif en ml, arrondi à 0.1 ml.
 - N'inclus dans le JSON qu'une entrée par note listée ci-dessus (family = "top"/"heart"/"base",
-  name = nom exact de la note, quantity_ml = quantité en ml).
+  name = nom exact de la note, quantity_ml = quantité en ml).{max_dosage_section}
 
 Réponds uniquement avec le JSON du schéma demandé.
 """.strip()
@@ -194,6 +223,7 @@ Réponds uniquement avec le JSON du schéma demandé.
         heart_notes: List[str],
         base_notes: List[str],
         total_volume_ml: float,
+        max_dosage_by_note: Dict[str, float],
     ) -> Dict[str, Dict[str, float]]:
         expected = {"top": top_notes, "heart": heart_notes, "base": base_notes}
         fixed: Dict[str, Dict[str, float]] = {"top": {}, "heart": {}, "base": {}}
@@ -214,6 +244,13 @@ Réponds uniquement avec le JSON du schéma demandé.
                     raise ValueError(f"Quantité manquante ou invalide pour '{note}' ({family})")
                 fixed[family][note] = round(float(value), 1)
 
+        # Garde-fou dur : l'IA doit déjà respecter les plafonds via le prompt,
+        # mais on les fait respecter ici aussi au cas où elle les ignorerait.
+        for family_notes in fixed.values():
+            for note, cap in max_dosage_by_note.items():
+                if note in family_notes and family_notes[note] > cap:
+                    family_notes[note] = round(cap, 1)
+
         total = sum(v for family in fixed.values() for v in family.values())
         if total <= 0:
             raise ValueError("Somme des quantités nulle")
@@ -233,6 +270,7 @@ Réponds uniquement avec le JSON du schéma demandé.
         base_notes: List[str],
         intensity: str,
         total_volume_ml: float,
+        max_dosage_by_note: Dict[str, float],
     ) -> Dict[str, Dict[str, float]]:
         concentration = _CONCENTRATION_BY_INTENSITY[intensity]
         notes_volume = total_volume_ml * concentration
@@ -247,9 +285,40 @@ Réponds uniquement avec le JSON du schéma demandé.
                 continue
             family_volume = notes_volume * (active_weights.get(family, 0) / weight_sum)
             per_note = family_volume / len(notes)
-            result[family] = {note: round(per_note, 1) for note in notes}
+            result[family] = self._split_with_caps(notes, per_note, max_dosage_by_note)
 
         return result
+
+    @staticmethod
+    def _split_with_caps(
+        notes: List[str], even_share: float, max_dosage_by_note: Dict[str, float]
+    ) -> Dict[str, float]:
+        """
+        Répartit équitablement even_share ml entre `notes`, plafonne celles ayant
+        une règle de dosage max, et redistribue le surplus ainsi libéré entre les
+        notes restantes (sans jamais dépasser leur propre plafond).
+        """
+        remaining_notes = list(notes)
+        allocated: Dict[str, float] = {}
+        pending_volume = even_share * len(notes)
+
+        # Boucle car plafonner une note peut faire baisser le partage équitable
+        # des autres en-dessous de leur propre plafond, ou l'inverse.
+        while remaining_notes:
+            share = pending_volume / len(remaining_notes)
+            capped = [n for n in remaining_notes if n in max_dosage_by_note and max_dosage_by_note[n] < share]
+            if not capped:
+                for note in remaining_notes:
+                    allocated[note] = share
+                break
+            for note in capped:
+                allocated[note] = max_dosage_by_note[note]
+                pending_volume -= max_dosage_by_note[note]
+            remaining_notes = [n for n in remaining_notes if n not in capped]
+            if not remaining_notes:
+                break
+
+        return {note: round(allocated[note], 1) for note in notes}
 
 
 perfumer_service = PerfumerService()
