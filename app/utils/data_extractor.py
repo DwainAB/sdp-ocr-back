@@ -131,6 +131,34 @@ class DataExtractor:
         return None
 
     # =====================================================================
+    # CORRECTION POST-EXTRACTION DE LA RÉFÉRENCE (avant insertion BDD)
+    # =====================================================================
+
+    # Lettres fréquemment confondues avec des chiffres par l'OCR
+    # (confirmé terrain : S→5, B→3, A→4 ; complété par les substitutions visuelles classiques)
+    _OCR_LETTER_TO_DIGIT = {
+        "S": "5", "s": "5",
+        "B": "3",
+        "A": "4",
+        "O": "0", "o": "0",
+        "I": "1", "l": "1",
+        "Z": "2",
+        "G": "6",
+        "T": "7",
+    }
+
+    def fix_reference_ocr_digits(self, reference: str) -> str:
+        """
+        Corrige une référence de formule déjà extraite en remplaçant les lettres
+        que l'OCR confond avec des chiffres (une référence est toujours numérique).
+        À appliquer une fois la référence récupérée, juste avant l'ajout en BDD —
+        ne modifie pas la logique d'extraction elle-même.
+        """
+        if not reference:
+            return reference
+        return "".join(self._OCR_LETTER_TO_DIGIT.get(ch, ch) for ch in reference)
+
+    # =====================================================================
     # UTILITAIRES
     # =====================================================================
 

@@ -18,6 +18,7 @@ class FormulaRepository:
         customer_review_id: Optional[int] = None,
         reference: Optional[str] = None,
         perfume_name: Optional[str] = None,
+        box_type: Optional[str] = None,
     ) -> Tuple[Optional[int], bool]:
         """
         Crée une formule liée à un customer (optionnel) et à un fichier,
@@ -32,6 +33,7 @@ class FormulaRepository:
             customer_review_id: ID du customer_review (optionnel)
             reference: Référence/identifiant de la formule (optionnel)
             perfume_name: Nom du parfum (optionnel)
+            box_type: Coffret utilisé (optionnel)
 
         Returns:
             Tuple (formula_id, notes_were_corrected)
@@ -47,7 +49,7 @@ class FormulaRepository:
             date = (extracted_data.get('date') or '').strip() or None
 
             formula_id = crud_formula.create(
-                connection, customer_id, file_id, customer_review_id=customer_review_id, reference=reference, perfume_name=perfume_name, date=date
+                connection, customer_id, file_id, customer_review_id=customer_review_id, reference=reference, perfume_name=perfume_name, date=date, box_type=box_type
             )
             if not formula_id:
                 return None, False
@@ -187,6 +189,7 @@ class FormulaRepository:
         reference: Optional[str] = None,
         perfume_name: Optional[str] = None,
         date: Optional[str] = None,
+        box_type: Optional[str] = None,
         skip_correction: bool = True,
     ) -> bool:
         """
@@ -206,6 +209,7 @@ class FormulaRepository:
             reference: Référence/identifiant de la formule (optionnel)
             perfume_name: Nom du parfum (optionnel)
             date: Date de la formule (optionnel)
+            box_type: Coffret utilisé (optionnel)
             skip_correction: Si True, ne pas corriger automatiquement les noms (défaut: True pour modifications manuelles)
 
         Format attendu pour chaque note:
@@ -310,6 +314,8 @@ class FormulaRepository:
                 update_kwargs['perfume_name'] = perfume_name
             if date is not None:
                 update_kwargs['date'] = date
+            if box_type is not None:
+                update_kwargs['box_type'] = box_type
 
             if update_kwargs:
                 crud_formula.update(connection, formula_id, **update_kwargs)
@@ -321,6 +327,8 @@ class FormulaRepository:
                     print(f"🍶 Nom du parfum de la formule {formula_id} mis à jour")
                 if date is not None:
                     print(f"📅 Date de la formule {formula_id} mise à jour")
+                if box_type is not None:
+                    print(f"🎁 Coffret de la formule {formula_id} mis à jour")
 
             print(f"✅ Formule {formula_id} mise à jour avec succès")
             return True

@@ -176,6 +176,8 @@ async def _process_pdf_job(job_id: str, pdf_content: bytes, filename: str, v2: b
 
                                 try:
                                     reference = (extracted_data.get('identifiant') or '').strip() or None
+                                    if reference:
+                                        reference = data_extractor.fix_reference_ocr_digits(reference)
                                     formula_id, notes_were_corrected = formula_repository.create_formula_with_notes(
                                         customer_id=customer_id,
                                         file_id=pdf_file_id,

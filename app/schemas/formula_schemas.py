@@ -51,6 +51,7 @@ class FormulaBase(BaseModel):
     quantity: Optional[str] = None
     source: Optional[str] = None
     supervisor_id: Optional[int] = None
+    box_type: Optional[str] = None
 
 
 class FormulaCreate(FormulaBase):
@@ -79,6 +80,7 @@ class FormulaUpdateNotes(BaseModel):
     reference: Optional[str] = None
     perfume_name: Optional[str] = None
     date: Optional[str] = None
+    box_type: Optional[str] = None
 
 
 class FormulaResponse(FormulaBase):

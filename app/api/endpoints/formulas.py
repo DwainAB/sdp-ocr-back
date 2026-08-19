@@ -78,6 +78,7 @@ async def update_formula_notes(formula_id: int, notes_update: FormulaUpdateNotes
         reference=notes_update.reference,
         perfume_name=notes_update.perfume_name,
         date=notes_update.date,
+        box_type=notes_update.box_type,
         skip_correction=True,  # Pas de correction automatique pour les modifications manuelles
     )
 

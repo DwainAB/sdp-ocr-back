@@ -13,6 +13,7 @@ def create(
     quantity: Optional[str] = None,
     source: Optional[str] = None,
     supervisor_id: Optional[int] = None,
+    box_type: Optional[str] = None,
 ) -> Optional[int]:
     """
     Crée une nouvelle formule liée à un customer (ou customer_review) et à un fichier.
@@ -27,6 +28,7 @@ def create(
         date: Date extraite du formulaire OCR
         quantity: Quantité choisie (10ml, 30ml, 50ml, 100ml, Brume)
         source: Origine de la formule ('ocr' ou 'tablet')
+        box_type: Coffret utilisé (optionnel)
 
     Returns:
         ID de la formule créée ou None si erreur
@@ -51,6 +53,8 @@ def create(
             data["source"] = source
         if supervisor_id is not None:
             data["supervisor_id"] = supervisor_id
+        if box_type is not None:
+            data["box_type"] = box_type
 
         columns = list(data.keys())
         placeholders = ["%s"] * len(columns)
@@ -96,7 +100,7 @@ def get_by_id(
         query = """
             SELECT f.id, f.customer_id, f.file_id, f.customer_review_id, f.comment,
                    f.reference, f.perfume_name, f.date, f.quantity, f.source, f.reuse_count,
-                   f.supervisor_id,
+                   f.supervisor_id, f.box_type,
                    CONCAT(u.first_name, ' ', u.last_name) AS supervisor_name
             FROM formula f
             LEFT JOIN users u ON u.id = f.supervisor_id
@@ -332,7 +336,7 @@ def update(
         cursor = connection.cursor()
 
         # Construire la requête dynamiquement
-        allowed_fields = {"customer_id", "file_id", "customer_review_id", "comment", "reference", "perfume_name", "date"}
+        allowed_fields = {"customer_id", "file_id", "customer_review_id", "comment", "reference", "perfume_name", "date", "box_type"}
         fields_to_update = {k: v for k, v in kwargs.items() if k in allowed_fields}
 
         if not fields_to_update:
