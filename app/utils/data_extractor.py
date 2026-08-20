@@ -54,6 +54,12 @@ class DataExtractor:
         # Identifiant (en haut de page, correction OCR)
         data.identifiant = self._extract_identifiant(text)
 
+        # Nom du parfum (en haut de page, à côté du numéro de création)
+        # Selon le modèle de fiche : FR "Nom du parfum"/"Nom parfum", EN "Perfume name"
+        data.nom_parfum = self._extract_field_value(
+            text, ["nom du parfum", "nom parfum", "perfume name"]
+        )
+
         # Genre (cases cochées)
         data.genre = self._extract_genre(text)
 

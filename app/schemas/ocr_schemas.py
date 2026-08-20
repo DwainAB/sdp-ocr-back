@@ -24,6 +24,10 @@ class MistralDocumentAnnotation(BaseModel):
         None,
         description="Identifiant unique en haut de page (8 à 10 chiffres, commence toujours par '20'). Exemple: '202201008' ou '20201008'. Peut être écrit avec des espaces dans l'OCR comme '2022 01008'."
     )
+    nom_parfum: Optional[str] = Field(
+        None,
+        description="Nom donné au parfum créé, écrit à la main par le client après un label du type 'Nom du parfum', 'Nom parfum' (français) ou 'Perfume name' (anglais), généralement en haut de la fiche à côté du numéro de création. Selon le modèle de fiche, ce label peut être absent. C'est un champ souvent laissé vide : ne jamais renvoyer 'LE STUDIO DES PARFUMS', 'Studio des Parfums' ou 'The Studio des Parfums' (c'est le titre imprimé de l'en-tête, pas une réponse du client). Si rien n'est écrit après le label, ou si le label est absent, renvoyer null."
+    )
     genre: Optional[str] = Field(
         None,
         description="Genre de la personne: 'Mr', 'Mme', 'Mlle' ou 'Ms'. Chercher les cases cochées (☑, ✓, [x]) à côté de ces mentions."
@@ -100,8 +104,9 @@ class BlankSheetData(BaseModel):
 
 class StudioParfumsData(BaseModel):
     title_detected: bool = False
-    identifiant: Optional[str] = None  
-    genre: Optional[str] = None  
+    identifiant: Optional[str] = None
+    nom_parfum: Optional[str] = None
+    genre: Optional[str] = None
     nom: Optional[str] = None
     prenom: Optional[str] = None
     date: Optional[str] = None

@@ -178,12 +178,14 @@ async def _process_pdf_job(job_id: str, pdf_content: bytes, filename: str, v2: b
                                     reference = (extracted_data.get('identifiant') or '').strip() or None
                                     if reference:
                                         reference = data_extractor.fix_reference_ocr_digits(reference)
+                                    perfume_name = (extracted_data.get('nom_parfum') or '').strip() or None
                                     formula_id, notes_were_corrected = formula_repository.create_formula_with_notes(
                                         customer_id=customer_id,
                                         file_id=pdf_file_id,
                                         extracted_data=extracted_data,
                                         customer_review_id=customer_review_id,
-                                        reference=reference
+                                        reference=reference,
+                                        perfume_name=perfume_name
                                     )
                                     if formula_id:
                                         logger.info(f"[Job {job_id}] [Page {page_number}] Formule créée — ID: {formula_id}")
