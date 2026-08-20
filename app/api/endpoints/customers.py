@@ -45,7 +45,7 @@ async def create_customer(customer: CustomerCreate):
 async def get_customers(
     page: int = Query(1, ge=1, description="Numéro de page"),
     size: int = Query(10, ge=1, le=100, description="Taille de page"),
-    search: Optional[str] = Query(None, description="Recherche dans nom, email, téléphone, ville, référence de formule"),
+    search: Optional[str] = Query(None, description="Recherche dans nom, email, téléphone, ville, référence ou nom de parfum de formule"),
     v2: bool = Query(False, description="Filtrer par version du formulaire (true=v2, false=v1)"),
     country: Optional[str] = Query(None, description="Filtrer par pays"),
     year: Optional[str] = Query(None, description="Filtrer par année (création ou référence)"),

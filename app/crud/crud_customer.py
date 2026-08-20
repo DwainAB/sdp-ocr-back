@@ -183,7 +183,7 @@ def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int
         connection: Connexion MySQL
         page: Numéro de page
         size: Taille de page
-        search: Terme de recherche (nom, email, téléphone, ville, référence de formule)
+        search: Terme de recherche (nom, email, téléphone, ville, référence ou nom de parfum de formule)
         v2: Filtre par version du formulaire
         country: Filtre par pays
         year: Filtre par année (created_at ou référence de formule)
@@ -234,10 +234,11 @@ def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int
                 (customers.first_name LIKE %s OR customers.last_name LIKE %s
                 OR customers.email LIKE %s OR customers.phone LIKE %s OR customers.city LIKE %s
                 OR customers.id IN (
-                    SELECT formula.customer_id FROM formula WHERE formula.reference LIKE %s
+                    SELECT formula.customer_id FROM formula
+                    WHERE formula.reference LIKE %s OR formula.perfume_name LIKE %s
                 ))
             """)
-            params.extend([search_param] * 6)
+            params.extend([search_param] * 7)
 
         where_clause = "WHERE " + " AND ".join(conditions)
 

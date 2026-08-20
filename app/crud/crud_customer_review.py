@@ -98,7 +98,7 @@ def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int
         page: Numéro de page
         size: Taille de page
         review_type: Filtre par type de review
-        search: Recherche sur last_name, first_name ou reference (formule)
+        search: Recherche sur last_name, first_name, reference ou perfume_name (formule)
         v2: Filtre par version du formulaire
         has_reference: Filtre sur la présence d'une référence de formule (via formula.customer_review_id).
             True => au moins une formule liée avec une reference non vide.
@@ -119,8 +119,10 @@ def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int
 
         if search:
             like = f"%{search}%"
-            conditions.append("(cr.last_name LIKE %s OR cr.first_name LIKE %s OR f.reference LIKE %s)")
-            params.extend([like, like, like])
+            conditions.append(
+                "(cr.last_name LIKE %s OR cr.first_name LIKE %s OR f.reference LIKE %s OR f.perfume_name LIKE %s)"
+            )
+            params.extend([like, like, like, like])
 
         # On se base sur formula.customer_review_id (lien direct et fiable) plutôt que sur
         # customer_files -> formula.file_id : un review peut avoir plusieurs customer_files

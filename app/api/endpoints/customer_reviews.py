@@ -44,7 +44,7 @@ async def get_customer_reviews(
     page: int = Query(1, ge=1, description="Numéro de page"),
     size: int = Query(10, ge=1, le=100, description="Taille de la page"),
     review_type: Optional[str] = Query(None, description="Filtrer par type de review"),
-    search: Optional[str] = Query(None, description="Recherche sur nom, prénom ou référence de formule"),
+    search: Optional[str] = Query(None, description="Recherche sur nom, prénom, référence ou nom de parfum de formule"),
     v2: bool = Query(False, description="Filtrer par version du formulaire (true=v2, false=v1)"),
     has_reference: Optional[bool] = Query(
         None,
