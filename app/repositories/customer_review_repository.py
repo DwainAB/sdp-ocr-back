@@ -118,7 +118,8 @@ class CustomerReviewRepository:
     def get_all_customer_reviews(self, page: int = 1, size: int = 10,
                                  review_type: Optional[str] = None,
                                  search: Optional[str] = None,
-                                 v2: bool = False) -> Tuple[List[Dict[str, Any]], int]:
+                                 v2: bool = False,
+                                 has_reference: Optional[bool] = None) -> Tuple[List[Dict[str, Any]], int]:
         """
         Récupère tous les customer_reviews avec pagination et filtres optionnels
 
@@ -127,6 +128,8 @@ class CustomerReviewRepository:
             size: Taille de page
             review_type: Filtre par type de review
             search: Recherche sur last_name, first_name ou reference (formule)
+            has_reference: Filtre sur la présence d'une référence de formule
+                (True = au moins une formule avec reference, False = au moins une sans, ou aucune formule)
 
         Returns:
             Tuple (liste des customer_reviews, total)
@@ -137,7 +140,9 @@ class CustomerReviewRepository:
 
         try:
             # 1) Récupération de base depuis customers_review
-            reviews, total = crud_customer_review.get_all(connection, page, size, review_type, search, v2)
+            reviews, total = crud_customer_review.get_all(
+                connection, page, size, review_type, search, v2, has_reference
+            )
 
             # 2) Récupérer les formules de toutes les reviews de la page en UNE seule requête (évite le N+1)
             review_ids = [r.get("id") for r in reviews if r.get("id")]
