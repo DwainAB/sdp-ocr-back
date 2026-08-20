@@ -100,9 +100,9 @@ def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int
         review_type: Filtre par type de review
         search: Recherche sur last_name, first_name ou reference (formule)
         v2: Filtre par version du formulaire
-        has_reference: Filtre sur la présence d'une référence de formule.
+        has_reference: Filtre sur la présence d'une référence de formule (via formula.customer_review_id).
             True => au moins une formule liée avec une reference non vide.
-            False => au moins une formule liée sans reference (ou aucune formule liée).
+            False => aucune formule liée avec une reference non vide (y compris si aucune formule liée).
 
     Returns:
         Tuple (liste des customer_reviews, total)
@@ -122,18 +122,19 @@ def get_all(connection: pymysql.connections.Connection, page: int = 1, size: int
             conditions.append("(cr.last_name LIKE %s OR cr.first_name LIKE %s OR f.reference LIKE %s)")
             params.extend([like, like, like])
 
+        # On se base sur formula.customer_review_id (lien direct et fiable) plutôt que sur
+        # customer_files -> formula.file_id : un review peut avoir plusieurs customer_files
+        # (PDF + images d'un même upload) pour une seule formule, ce qui fausserait le filtre
+        # si on passait par ce détour.
         if has_reference is True:
             conditions.append(
-                "EXISTS (SELECT 1 FROM customer_files cf2 JOIN formula f2 ON f2.file_id = cf2.id "
-                "WHERE cf2.customer_review_id = cr.id AND f2.reference IS NOT NULL AND f2.reference != '')"
+                "EXISTS (SELECT 1 FROM formula f2 "
+                "WHERE f2.customer_review_id = cr.id AND f2.reference IS NOT NULL AND f2.reference != '')"
             )
         elif has_reference is False:
             conditions.append(
-                "("
-                "EXISTS (SELECT 1 FROM customer_files cf2 LEFT JOIN formula f2 ON f2.file_id = cf2.id "
-                "WHERE cf2.customer_review_id = cr.id AND (f2.reference IS NULL OR f2.reference = '')) "
-                "OR NOT EXISTS (SELECT 1 FROM customer_files cf3 WHERE cf3.customer_review_id = cr.id)"
-                ")"
+                "NOT EXISTS (SELECT 1 FROM formula f2 "
+                "WHERE f2.customer_review_id = cr.id AND f2.reference IS NOT NULL AND f2.reference != '')"
             )
 
         # Construire la clause WHERE
