@@ -3,6 +3,7 @@ import unicodedata
 from typing import Dict, List, Optional
 
 from openai import OpenAI
+from rapidfuzz import process, fuzz
 
 from app.core.config import settings
 from app.core.logger import get_logger
@@ -43,6 +44,51 @@ def normalize_intensity(raw: Optional[str]) -> str:
         return "moderate"
     key = _strip_accents(raw.strip().lower())
     return _INTENSITY_ALIASES.get(key, "moderate")
+
+
+def _normalize_note_name(value: str) -> str:
+    """Normalise un nom de note pour un matching tolérant (accents/casse/espaces/ponctuation)."""
+    value = _strip_accents(value.strip().lower())
+    value = value.replace("(", " ").replace(")", " ")
+    value = " ".join(value.split())
+    return value
+
+
+# Score minimum (0-100) pour accepter un rapprochement fuzzy entre le nom de note
+# attendu (choisi par le client) et le nom renvoyé par le LLM dans sa réponse JSON.
+_FUZZY_MATCH_THRESHOLD = 80
+
+
+def _resolve_note_value(note: str, family_values: Dict[str, float]) -> Optional[float]:
+    """
+    Retrouve la quantité renvoyée par le LLM pour `note`, en tolérant les écarts
+    mineurs de formulation (accents, casse, espaces, parenthèses) entre le nom
+    envoyé dans le prompt et celui que le LLM restitue dans sa réponse.
+    """
+    # 1) Correspondance exacte (cas nominal).
+    if note in family_values:
+        return family_values[note]
+
+    if not family_values:
+        return None
+
+    # 2) Correspondance après normalisation (accents/casse/espaces/parenthèses).
+    normalized_note = _normalize_note_name(note)
+    normalized_to_key = {_normalize_note_name(k): k for k in family_values}
+    if normalized_note in normalized_to_key:
+        return family_values[normalized_to_key[normalized_note]]
+
+    # 3) Filet de sécurité : rapprochement fuzzy sur les noms renvoyés par le LLM.
+    match = process.extractOne(
+        normalized_note,
+        list(family_values.keys()),
+        scorer=fuzz.WRatio,
+        processor=_normalize_note_name,
+    )
+    if match and match[1] >= _FUZZY_MATCH_THRESHOLD:
+        return family_values[match[0]]
+
+    return None
 
 
 class PerfumerService:
@@ -209,7 +255,7 @@ Réponds uniquement avec le JSON du schéma demandé.
         for family, notes in expected.items():
             family_values = by_family[family]
             for note in notes:
-                value = family_values.get(note)
+                value = _resolve_note_value(note, family_values)
                 if not isinstance(value, (int, float)) or value <= 0:
                     raise ValueError(f"Quantité manquante ou invalide pour '{note}' ({family})")
                 fixed[family][note] = round(float(value), 1)
