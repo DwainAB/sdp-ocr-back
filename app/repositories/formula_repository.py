@@ -144,6 +144,7 @@ class FormulaRepository:
             formula["top_notes"] = crud_notes.get_notes_by_type(connection, "top_note", formula_id)
             formula["heart_notes"] = crud_notes.get_notes_by_type(connection, "heart_note", formula_id)
             formula["base_notes"] = crud_notes.get_notes_by_type(connection, "base_note", formula_id)
+            formula["booster_notes"] = crud_notes.get_notes_by_type(connection, "booster_note", formula_id)
 
             return formula
 

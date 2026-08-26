@@ -78,6 +78,15 @@ def create_base_note(
     return _insert_note(connection, "base_note", formula_id, name, quantity)
 
 
+def create_booster_note(
+    connection: pymysql.connections.Connection,
+    formula_id: int,
+    name: str,
+    quantity: Optional[str],
+) -> Optional[int]:
+    return _insert_note(connection, "booster_note", formula_id, name, quantity)
+
+
 def update_note(
     connection: pymysql.connections.Connection,
     table_name: str,
@@ -196,7 +205,7 @@ def delete_all_notes_by_formula(
     try:
         cursor = connection.cursor()
 
-        tables = ["top_note", "heart_note", "base_note"]
+        tables = ["top_note", "heart_note", "base_note", "booster_note"]
 
         for table in tables:
             query = f"""

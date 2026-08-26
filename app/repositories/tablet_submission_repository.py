@@ -95,6 +95,8 @@ class TabletSubmissionRepository:
                 crud_notes.create_heart_note(connection, formula_id, note.name, note.quantity)
             for note in submission.base_notes:
                 crud_notes.create_base_note(connection, formula_id, note.name, note.quantity)
+            for note in submission.booster_notes:
+                crud_notes.create_booster_note(connection, formula_id, note.name, note.quantity)
 
             return {
                 "customer_id": customer_id,

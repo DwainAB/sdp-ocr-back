@@ -28,6 +28,7 @@ class TabletSubmissionCreate(BaseModel):
     top_notes: List[TabletNote] = []
     heart_notes: List[TabletNote] = []
     base_notes: List[TabletNote] = []
+    booster_notes: List[TabletNote] = []
 
 
 class TabletSubmissionResponse(BaseModel):
@@ -75,6 +76,7 @@ class FormulaDetail(FormulaHistoryItem):
     top_notes: List[TabletNote] = []
     heart_notes: List[TabletNote] = []
     base_notes: List[TabletNote] = []
+    booster_notes: List[TabletNote] = []
 
 
 class FormulaReuseResponse(BaseModel):

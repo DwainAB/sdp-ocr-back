@@ -97,6 +97,7 @@ class CustomerReviewRepository:
                         formula["top_notes"] = _get_notes("top_note", formula_id)
                         formula["heart_notes"] = _get_notes("heart_note", formula_id)
                         formula["base_notes"] = _get_notes("base_note", formula_id)
+                        formula["booster_notes"] = _get_notes("booster_note", formula_id)
 
                     return formulas
                 except Exception as e:

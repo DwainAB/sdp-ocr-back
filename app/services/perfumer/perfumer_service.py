@@ -59,6 +59,36 @@ def _normalize_note_name(value: str) -> str:
 _FUZZY_MATCH_THRESHOLD = 80
 
 
+def _distribute_integer_ml(raw_values: Dict[str, float], total_cap: Optional[float] = None) -> Dict[str, int]:
+    """
+    Convertit des quantités (ml) potentiellement à virgule en quantités entières,
+    avec 1 ml comme minimum par note. Chaque valeur est d'abord arrondie à l'entier
+    le plus proche (plancher à 1), puis l'écart restant entre la somme obtenue et la
+    somme brute d'origine est réparti au ml près sur les notes les plus arrondies à
+    la hausse/baisse, pour rester au plus proche du dosage voulu.
+    """
+    if not raw_values:
+        return {}
+
+    floored = {name: max(1, round(value)) for name, value in raw_values.items()}
+
+    if total_cap is not None:
+        cap = max(len(floored), int(total_cap))
+        overflow = sum(floored.values()) - cap
+        if overflow > 0:
+            # Retire l'excédent en priorité sur les notes les plus dosées, sans
+            # jamais descendre sous 1 ml.
+            for name in sorted(floored, key=lambda n: floored[n], reverse=True):
+                if overflow <= 0:
+                    break
+                reducible = floored[name] - 1
+                reduction = min(reducible, overflow)
+                floored[name] -= reduction
+                overflow -= reduction
+
+    return floored
+
+
 def _resolve_note_value(note: str, family_values: Dict[str, float]) -> Optional[float]:
     """
     Retrouve la quantité renvoyée par le LLM pour `note`, en tolérant les écarts
@@ -115,10 +145,11 @@ class PerfumerService:
         base_notes: List[str],
         intensity: str,
         total_volume_ml: float,
-    ) -> Dict[str, Dict[str, float]]:
+    ) -> Dict[str, Dict[str, int]]:
         """
         Retourne {"top": {note: ml, ...}, "heart": {...}, "base": {...}}
-        dont la somme vaut exactement total_volume_ml (arrondi à 0.1 ml).
+        avec des quantités en ml toujours entières (jamais de virgule) et un
+        minimum de 1 ml par note, dont la somme ne dépasse pas total_volume_ml.
         """
         normalized_intensity = normalize_intensity(intensity)
 
@@ -159,7 +190,7 @@ class PerfumerService:
                         "properties": {
                             "family": {"type": "string", "enum": ["top", "heart", "base"]},
                             "name": {"type": "string"},
-                            "quantity_ml": {"type": "number"},
+                            "quantity_ml": {"type": "integer"},
                         },
                         "required": ["family", "name", "quantity_ml"],
                         "additionalProperties": False,
@@ -224,7 +255,8 @@ Règles de dosage à respecter :
 - À l'intérieur de chaque famille, répartis équitablement entre les notes choisies, en tenant
   compte de leur puissance olfactive typique (une note très puissante comme le musc, le patchouli,
   l'oud ou la vanille doit recevoir une part plus faible qu'une note légère comme les agrumes ou le thé vert).
-- Chaque quantité doit être un nombre positif en ml, arrondi à 0.1 ml.
+- Chaque quantité doit être un nombre ENTIER de ml (jamais de virgule/décimale), avec 1 ml
+  comme quantité minimale pour chaque note.
 - N'inclus dans le JSON qu'une entrée par note listée ci-dessus (family = "top"/"heart"/"base",
   name = nom exact de la note, quantity_ml = quantité en ml).
 
@@ -240,9 +272,9 @@ Réponds uniquement avec le JSON du schéma demandé.
         heart_notes: List[str],
         base_notes: List[str],
         total_volume_ml: float,
-    ) -> Dict[str, Dict[str, float]]:
+    ) -> Dict[str, Dict[str, int]]:
         expected = {"top": top_notes, "heart": heart_notes, "base": base_notes}
-        fixed: Dict[str, Dict[str, float]] = {"top": {}, "heart": {}, "base": {}}
+        raw: Dict[str, Dict[str, float]] = {"top": {}, "heart": {}, "base": {}}
 
         # La réponse LLM est une liste plate [{family, name, quantity_ml}, ...]
         by_family: Dict[str, Dict[str, float]] = {"top": {}, "heart": {}, "base": {}}
@@ -258,15 +290,21 @@ Réponds uniquement avec le JSON du schéma demandé.
                 value = _resolve_note_value(note, family_values)
                 if not isinstance(value, (int, float)) or value <= 0:
                     raise ValueError(f"Quantité manquante ou invalide pour '{note}' ({family})")
-                fixed[family][note] = round(float(value), 1)
+                raw[family][note] = float(value)
 
-        total = sum(v for family in fixed.values() for v in family.values())
+        total = sum(v for family in raw.values() for v in family.values())
         if total <= 0:
             raise ValueError("Somme des quantités nulle")
-        if total > total_volume_ml:
-            raise ValueError(
-                f"Somme des quantités ({total} ml) dépasse le volume du flacon ({total_volume_ml} ml)"
-            )
+
+        # Chaque note reçoit un nombre entier de ml (minimum 1) ; la somme est
+        # ramenée sous total_volume_ml si l'arrondi/le plancher la fait dépasser.
+        all_raw = {f"{family}::{note}": v for family, notes in raw.items() for note, v in notes.items()}
+        distributed = _distribute_integer_ml(all_raw, total_cap=total_volume_ml)
+
+        fixed: Dict[str, Dict[str, int]] = {"top": {}, "heart": {}, "base": {}}
+        for family, notes in raw.items():
+            for note in notes:
+                fixed[family][note] = distributed[f"{family}::{note}"]
 
         return fixed
 
@@ -279,7 +317,7 @@ Réponds uniquement avec le JSON du schéma demandé.
         base_notes: List[str],
         intensity: str,
         total_volume_ml: float,
-    ) -> Dict[str, Dict[str, float]]:
+    ) -> Dict[str, Dict[str, int]]:
         concentration = _CONCENTRATION_BY_INTENSITY[intensity]
         notes_volume = total_volume_ml * concentration
 
@@ -287,13 +325,21 @@ Réponds uniquement avec le JSON du schéma demandé.
         active_weights = {k: w for k, w in _BASE_SPLIT.items() if families[k]}
         weight_sum = sum(active_weights.values()) or 1.0
 
-        result: Dict[str, Dict[str, float]] = {"top": {}, "heart": {}, "base": {}}
+        raw: Dict[str, float] = {}
         for family, notes in families.items():
             if not notes:
                 continue
             family_volume = notes_volume * (active_weights.get(family, 0) / weight_sum)
             per_note = family_volume / len(notes)
-            result[family] = {note: round(per_note, 1) for note in notes}
+            for note in notes:
+                raw[f"{family}::{note}"] = per_note
+
+        distributed = _distribute_integer_ml(raw, total_cap=total_volume_ml)
+
+        result: Dict[str, Dict[str, int]] = {"top": {}, "heart": {}, "base": {}}
+        for family, notes in families.items():
+            for note in notes:
+                result[family][note] = distributed[f"{family}::{note}"]
 
         return result
 
