@@ -1,4 +1,7 @@
+import urllib.parse
+
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 
 from app.schemas.formula_schemas import (
     FormulaResponse,
@@ -6,6 +9,8 @@ from app.schemas.formula_schemas import (
     FormulaDeleteResponse,
 )
 from app.repositories.formula_repository import formula_repository
+from app.repositories.customer_repository import customer_repository
+from app.services.pdf.formula_sheet_pdf_service import generate_formula_sheet_pdf
 
 router = APIRouter()
 
@@ -23,6 +28,41 @@ async def get_formula(formula_id: int):
         )
 
     return FormulaResponse(**formula)
+
+
+@router.get("/{formula_id}/pdf")
+async def get_formula_pdf(formula_id: int):
+    """
+    Génère et retourne la fiche formule en PDF (pyramide olfactive avec
+    toutes les notes, quantités et informations client).
+
+    Sert notamment pour les formules qui n'ont aucun document/fiche
+    associé (ex: formules créées digitalement) afin de fournir un
+    téléchargement de remplacement.
+    """
+    formula = formula_repository.get_formula_by_id(formula_id)
+    if not formula:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Formule avec ID {formula_id} non trouvée"
+        )
+
+    customer = {}
+    if formula.get("customer_id"):
+        customer = customer_repository.get_customer_by_id(formula["customer_id"]) or {}
+
+    pdf_bytes = generate_formula_sheet_pdf(customer, formula)
+
+    reference = formula.get("reference") or f"formule-{formula_id}"
+    safe_filename = urllib.parse.quote(f"fiche-{reference}.pdf")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}"
+        },
+    )
 
 
 @router.put("/{formula_id}/notes", response_model=FormulaResponse)

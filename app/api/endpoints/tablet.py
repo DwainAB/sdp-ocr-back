@@ -17,6 +17,7 @@ from app.schemas.tablet_schemas import (
 )
 from app.repositories.tablet_submission_repository import tablet_submission_repository
 from app.repositories.tablet_customer_repository import tablet_customer_repository
+from app.services.dashboard_rules import dashboard_rules_service
 from app.services.perfumer import perfumer_service
 from app.utils.note_corrector import NoteCorrector
 
@@ -56,12 +57,20 @@ async def suggest_note_quantities(request: SuggestQuantitiesRequest):
     if not request.top_notes and not request.heart_notes and not request.base_notes:
         raise HTTPException(status_code=422, detail="Au moins une note est requise")
 
+    bottle_size = f"{int(request.total_volume_ml)}ml" if request.total_volume_ml == int(request.total_volume_ml) else None
+    max_dosage_by_note = dashboard_rules_service.get_max_dosage_by_note_name(
+        box_set=request.box_set,
+        bottle_size=bottle_size,
+        intensity=request.intensity,
+    )
+
     quantities = perfumer_service.suggest_quantities(
         top_notes=request.top_notes,
         heart_notes=request.heart_notes,
         base_notes=request.base_notes,
         intensity=request.intensity,
         total_volume_ml=request.total_volume_ml,
+        max_dosage_by_note=max_dosage_by_note,
     )
 
     def _to_items(family: str, notes: list[str]) -> list[SuggestedNoteQuantity]:
